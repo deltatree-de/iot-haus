@@ -1,10 +1,17 @@
-# Smart Home Control System
+# 🏠 Smart Home Control System
+
+![Docker Build](https://github.com/deltatree-de/iot-haus/actions/workflows/docker-publish.yml/badge.svg)
+![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)art Home Control System
 
 ![Docker Build](https://github.com/deltatree/milan/actions/workflows/docker-publish.yml/badge.svg)
 ![Release](https://github.com/deltatree/milan/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-Eine moderne Single Page Application (SPA) zur Steuerung der Beleuchtung in einem 2-stöckigen Haus mit MQTT-Integration für Echtzeit-Synchronisation.
+Eine moderne Singl# Neueste Version
+docker pull ghcr.io/deltatree-de/iot-haus:latest
+
+# Spezifische Version
+docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0e Application (SPA) zur Steuerung der Beleuchtung in einem 2-stöckigen Haus mit MQTT-Integration für Echtzeit-Synchronisation.
 
 ## ✨ Features
 
@@ -152,8 +159,8 @@ smarthome/room_2_right/light  # Badezimmer
 
 1. **Repository klonen:**
    ```bash
-   git clone https://github.com/deltatree/milan.git
-   cd milan
+   git clone https://github.com/deltatree-de/iot-haus.git
+   cd iot-haus
    ```
 
 2. **Dependencies installieren:**
@@ -237,8 +244,8 @@ git push origin v1.0.0
 
 ### Workflow Status
 
-![Docker Build](https://github.com/deltatree/milan/actions/workflows/docker-publish.yml/badge.svg)
-![Release](https://github.com/deltatree/milan/actions/workflows/release.yml/badge.svg)
+![Docker Build](https://github.com/deltatree-de/iot-haus/actions/workflows/docker-publish.yml/badge.svg)
+![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)
 
 ## 📝 API & Integration
 
@@ -475,9 +482,9 @@ Dieses Projekt steht unter der MIT Lizenz. Siehe [LICENSE](LICENSE) für Details
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/deltatree/milan/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/deltatree/milan/discussions)
-- **Wiki**: [GitHub Wiki](https://github.com/deltatree/milan/wiki)
+- **Issues**: [GitHub Issues](https://github.com/deltatree-de/iot-haus/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/deltatree-de/iot-haus/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/deltatree-de/iot-haus/wiki)
 
 ## 📈 Roadmap
 
@@ -529,8 +536,8 @@ docker pull ghcr.io/deltatree/milan:v1.0.0
 
 ### 🔧 Workflow Badges
 
-![Docker Build](https://github.com/deltatree/milan/actions/workflows/docker-publish.yml/badge.svg)
-![Release](https://github.com/deltatree/milan/actions/workflows/release.yml/badge.svg)
+![Docker Build](https://github.com/deltatree-de/iot-haus/actions/workflows/docker-publish.yml/badge.svg)
+![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)
 
 ## Lizenz
 

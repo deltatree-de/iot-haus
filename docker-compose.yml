@@ -2,9 +2,9 @@
 # Production deployment using GitHub Container Registry
 
 services:
-  smart-home:
+  iot-haus:
     # Use GitHub Container Registry image instead of building locally
-    # image: ghcr.io/deltatree/milan:latest
+    # image: ghcr.io/deltatree-de/iot-haus:latest
     # For local development, uncomment the build section below:
     build: .
     ports:
@@ -18,9 +18,9 @@ services:
       - mosquitto-data:/var/lib/mosquitto
       - mosquitto-logs:/var/log/mosquitto
     restart: unless-stopped
-    container_name: smart-home-control
+    container_name: iot-haus-control
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

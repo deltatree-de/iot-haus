@@ -1,7 +1,7 @@
-# 🤖 GitHub Actions & CI/CD
+# 🚀 GitHub Actions - CI/CD Pipeline
 
-![Docker Build](https://github.com/deltatree/milan/actions/workflows/docker-publish.yml/badge.svg)
-![Release](https://github.com/deltatree/milan/actions/workflows/release.yml/badge.svg)
+![Docker Build](https://github.com/deltatree-de/iot-haus/actions/workflows/docker-publish.yml/badge.svg)
+![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)
 
 ## 📋 Überblick
 
@@ -108,10 +108,10 @@ git push origin v1.0.0
 
 ```bash
 # 🔥 Latest Development Build
-docker pull ghcr.io/deltatree/milan:latest
+docker pull ghcr.io/deltatree-de/iot-haus:latest
 
 # 🏆 Spezifische Release Version
-docker pull ghcr.io/deltatree/milan:v1.0.0
+docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0
 
 # 🎯 Mit Production Compose
 docker-compose -f docker-compose.prod.yml up -d
@@ -203,9 +203,9 @@ gh run view --log --job="build-and-push"
 
 ### 🌐 Web-Interface
 
-- **Actions Tab**: https://github.com/deltatree/milan/actions
-- **Packages**: https://github.com/deltatree/milan/pkgs/container/milan
-- **Releases**: https://github.com/deltatree/milan/releases
+- **Actions Tab**: https://github.com/deltatree-de/iot-haus/actions
+- **Packages**: https://github.com/deltatree-de/iot-haus/pkgs/container/iot-haus
+- **Releases**: https://github.com/deltatree-de/iot-haus/releases
 
 ## 🚨 Troubleshooting
 

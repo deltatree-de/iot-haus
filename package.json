@@ -1,5 +1,5 @@
 {
-  "name": "milan",
+  "name": "iot-haus",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "node server.js",
     "lint": "eslint",
-    "docker:build": "docker build -t smart-home-control .",
-    "docker:run": "docker run -d --name smart-home -p 3000:3000 smart-home-control",
-    "docker:stop": "docker stop smart-home && docker rm smart-home",
-    "docker:logs": "docker logs -f smart-home",
+    "docker:build": "docker build -t iot-haus .",
+    "docker:run": "docker run -d --name iot-haus -p 3000:3000 iot-haus",
+    "docker:stop": "docker stop iot-haus && docker rm iot-haus",
+    "docker:logs": "docker logs -f iot-haus",
     "compose:up": "docker-compose up -d --build",
     "compose:down": "docker-compose down",
     "compose:logs": "docker-compose logs -f"

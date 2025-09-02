@@ -27,7 +27,7 @@ docker run -d \
   --name smart-home \
   -p 3000:3000 \
   --restart unless-stopped \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 
 # 📦 Mit Docker Compose (Production)
 docker-compose -f docker-compose.prod.yml up -d
@@ -54,9 +54,9 @@ docker run -d \
 
 | Image Tag | Beschreibung | Verwendung |
 |-----------|-------------|------------|
-| `ghcr.io/deltatree/milan:latest` | Neueste Entwicklungsversion | Development/Testing |
-| `ghcr.io/deltatree/milan:v1.0.0` | Spezifische Release-Version | Production |
-| `ghcr.io/deltatree/milan:main` | Main Branch Build | Staging |
+| `ghcr.io/deltatree-de/iot-haus:latest` | Neueste Entwicklungsversion | Development/Testing |
+| `ghcr.io/deltatree-de/iot-haus:v1.0.0` | Spezifische Release-Version | Production |
+| `ghcr.io/deltatree-de/iot-haus:main` | Main Branch Build | Staging |
 
 **🚀 Multi-Platform Support:**
 - `linux/amd64` (Intel/AMD x86_64)
@@ -105,7 +105,7 @@ docker run -d \
   -p 3000:3000 \
   -e NODE_ENV=production \
   -e NEXT_PUBLIC_MQTT_BROKER_URL=ws://localhost:3000/mqtt \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 ```
 
 ## 🏃‍♂️ Container-Management
@@ -189,7 +189,7 @@ docker run -d \
   --name smart-home-debug \
   -p 3000:3000 \
   -e ACTIONS_STEP_DEBUG=true \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 
 # Erweiterte Logs anzeigen
 docker logs --details smart-home-debug
@@ -202,7 +202,7 @@ docker logs --details smart-home-debug
 docker exec -it smart-home sh
 
 # Neue Shell-Session starten
-docker run -it --rm ghcr.io/deltatree/milan:latest sh
+docker run -it --rm ghcr.io/deltatree-de/iot-haus:latest sh
 ```
 
 ### MQTT-Test im Container
@@ -233,7 +233,7 @@ docker run -d \
   --memory=512m \
   --cpus=1 \
   --restart unless-stopped \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 
 # 🌐 Reverse Proxy (Nginx/Traefik)
 # SSL/TLS Terminierung
@@ -245,7 +245,7 @@ docker run -d \
 ```yaml
 services:
   smart-home:
-    image: ghcr.io/deltatree/milan:latest
+    image: ghcr.io/deltatree-de/iot-haus:latest
     ports:
       - "3000:3000"
     deploy:
@@ -280,7 +280,7 @@ docker run -d \
   -p 3000:3000 \
   -v mqtt-data:/var/lib/mosquitto \
   -v mqtt-logs:/var/log/mosquitto \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 ```
 
 ## 🔄 Updates & Maintenance
@@ -289,7 +289,7 @@ docker run -d \
 
 ```bash
 # 📥 Neuestes Image ziehen
-docker pull ghcr.io/deltatree/milan:latest
+docker pull ghcr.io/deltatree-de/iot-haus:latest
 
 # 🔄 Container mit neuem Image ersetzen
 docker stop smart-home
@@ -298,7 +298,7 @@ docker run -d \
   --name smart-home \
   -p 3000:3000 \
   --restart unless-stopped \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 
 # ✅ Mit Docker Compose
 docker-compose -f docker-compose.prod.yml pull
