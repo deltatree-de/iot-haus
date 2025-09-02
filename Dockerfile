@@ -1,14 +1,23 @@
 # Multi-stage Dockerfile for Smart Home Control System
-# Stage 1: Build the Next.js application
-FROM node:18-alpine AS builder
+# Stage 1: Dependencies installation
+FROM node:18-alpine AS deps
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci
+# Install dependencies with better caching
+RUN npm ci --no-audit --no-fund --frozen-lockfile
+
+# Stage 2: Build the Next.js application  
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
 
 # Copy source code
 COPY . .
@@ -16,10 +25,10 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Stage 2: Setup MQTT Broker and Runtime
+# Stage 3: Runtime with MQTT Broker
 FROM node:18-alpine AS runtime
 
-# Install Mosquitto MQTT broker and supervisor
+# Install Mosquitto MQTT broker and supervisor in one layer
 RUN apk add --no-cache mosquitto mosquitto-clients supervisor
 
 # Create app directory
@@ -27,25 +36,24 @@ WORKDIR /app
 
 # Copy package files and install only production dependencies
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --only=production --no-audit --no-fund --frozen-lockfile && \
+    npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/server.js ./server.js
 
-# Create mosquitto directories
-RUN mkdir -p /etc/mosquitto/conf.d /var/lib/mosquitto /var/log/mosquitto
-RUN chown -R mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto
+# Create mosquitto directories and configuration in one layer
+RUN mkdir -p /etc/mosquitto/conf.d /var/lib/mosquitto /var/log/mosquitto && \
+    chown -R mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto
 
-# Create Mosquitto configuration
+# Copy configuration files
 COPY docker/mosquitto.conf /etc/mosquitto/mosquitto.conf
-
-# Create supervisor configuration
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Create startup script
 COPY docker/start.sh /start.sh
+
+# Set permissions
 RUN chmod +x /start.sh
 
 # Expose HTTP port only
