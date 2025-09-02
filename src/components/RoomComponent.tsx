@@ -44,7 +44,7 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
         />
       )}
       
-      {/* Room Rectangle with modern styling */}
+      {/* Room Rectangle with modern styling and touch optimization */}
       <rect
         x={roomX}
         y={roomY}
@@ -54,9 +54,21 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
         stroke={roomBorderColor}
         strokeWidth="3"
         rx="10"
-        className="cursor-pointer transition-all duration-500 hover:stroke-blue-500 hover:stroke-4 hover:shadow-lg"
+        className="cursor-pointer transition-all duration-500 hover:stroke-blue-500 hover:stroke-4 hover:shadow-lg touch-manipulation"
         onClick={() => onLightToggle(room.id)}
+        onTouchStart={(e) => {
+          e.currentTarget.style.transform = 'scale(0.95)';
+          e.currentTarget.style.filter = 'brightness(0.9)';
+        }}
+        onTouchEnd={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.filter = 'brightness(1)';
+        }}
         filter="url(#roomShadow)"
+        style={{ 
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation'
+        }}
       />
       
       {/* Room gradient overlay */}

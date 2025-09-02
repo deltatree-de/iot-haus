@@ -8,16 +8,22 @@ interface HouseVisualizationProps {
 
 export default function HouseVisualization({ house, onLightToggle }: HouseVisualizationProps) {
   return (
-    <div className="flex flex-col items-center p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
-      <div className="text-center mb-8">
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+    <div className="flex flex-col items-center p-4 sm:p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+      <div className="text-center mb-6 sm:mb-8">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
           🏠 Smart Home Control
         </h2>
-        <p className="text-gray-600 text-lg">Ihr intelligentes Zuhause wartet auf Sie</p>
+        <p className="text-gray-600 text-sm sm:text-lg">Ihr intelligentes Zuhause wartet auf Sie</p>
       </div>
       
-      <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-200/50 backdrop-blur-sm">
-        <svg width="420" height="420" viewBox="0 0 420 420" className="rounded-xl bg-gradient-to-b from-sky-100 to-green-100">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 border border-gray-200/50 backdrop-blur-sm w-full max-w-lg sm:max-w-none">
+        <svg 
+          width="100%" 
+          height="auto" 
+          viewBox="0 0 420 420" 
+          className="rounded-xl bg-gradient-to-b from-sky-100 to-green-100 w-full h-auto max-w-md sm:max-w-lg mx-auto"
+          preserveAspectRatio="xMidYMid meet"
+        >
           {/* House Structure with modern design */}
           {/* Base/Foundation */}
           <rect
@@ -294,12 +300,12 @@ export default function HouseVisualization({ house, onLightToggle }: HouseVisual
           <circle cx="355" cy="412" r="4" fill="#065F46"/>
         </svg>
         
-        <div className="mt-6 text-center space-y-4">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
-            <p className="text-lg text-gray-700 font-medium mb-3">
+        <div className="mt-4 sm:mt-6 text-center space-y-3 sm:space-y-4">
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-3 sm:p-4 border border-blue-200">
+            <p className="text-sm sm:text-lg text-gray-700 font-medium mb-2 sm:mb-3">
               💡 Klicken Sie auf ein Zimmer, um das Licht zu schalten
             </p>
-            <div className="flex justify-center items-center space-x-6">
+            <div className="flex flex-col sm:flex-row justify-center items-center space-y-3 sm:space-y-0 sm:space-x-6">
               <div className="flex items-center bg-white rounded-lg px-3 py-2 shadow-sm">
                 <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-green-500 rounded-full mr-3 shadow-sm"></div>
                 <span className="text-sm text-gray-700 font-medium">Licht an</span>
@@ -312,7 +318,7 @@ export default function HouseVisualization({ house, onLightToggle }: HouseVisual
           </div>
           
           <div className="text-center">
-            <p className="text-sm text-gray-500">🏠 Willkommen in Ihrem intelligenten Zuhause</p>
+            <p className="text-xs sm:text-sm text-gray-500">🏠 Willkommen in Ihrem intelligenten Zuhause</p>
           </div>
         </div>
       </div>

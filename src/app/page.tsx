@@ -149,35 +149,35 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-blue-50 to-purple-100 relative overflow-hidden">
-      {/* Animated background elements */}
+      {/* Animated background elements - smaller on mobile */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-4 -left-4 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute -top-4 -right-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-4 -left-4 w-48 md:w-72 h-48 md:h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute -top-4 -right-4 w-48 md:w-72 h-48 md:h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-48 md:w-72 h-48 md:h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
       
-      <div className="container mx-auto px-4 py-12 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center bg-white/70 backdrop-blur-sm rounded-2xl px-6 py-3 shadow-lg border border-white/20 mb-6">
-            <span className="text-3xl mr-3">🏠</span>
+      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-12 relative z-10">
+        {/* Header - responsive */}
+        <div className="text-center mb-8 sm:mb-12">
+          <div className="inline-flex items-center bg-white/70 backdrop-blur-sm rounded-2xl px-4 sm:px-6 py-2 sm:py-3 shadow-lg border border-white/20 mb-4 sm:mb-6">
+            <span className="text-2xl sm:text-3xl mr-2 sm:mr-3">🏠</span>
             <div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
                 Smart Home
               </h1>
-              <p className="text-lg text-gray-600 font-medium">Control System</p>
+              <p className="text-sm sm:text-lg text-gray-600 font-medium">Control System</p>
             </div>
           </div>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-600 text-sm sm:text-lg max-w-2xl mx-auto px-4">
             Steuern Sie die Beleuchtung in Ihrem intelligenten Zuhause mit modernster MQTT-Technologie in Echtzeit
           </p>
         </div>
 
-        {/* Main content grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start max-w-7xl mx-auto">
-          {/* House Visualization */}
-          <div className="flex justify-center">
-            <div className="transform hover:scale-105 transition-transform duration-500">
+        {/* Main content grid - mobile-first */}
+        <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12 items-start max-w-7xl mx-auto">
+          {/* House Visualization - full width on mobile */}
+          <div className="flex justify-center w-full order-1 lg:order-1">
+            <div className="transform hover:scale-105 transition-transform duration-500 w-full max-w-md lg:max-w-none">
               <HouseVisualization 
                 house={house} 
                 onLightToggle={handleLightToggle}
@@ -185,9 +185,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Control Panel */}
-          <div className="flex justify-center">
-            <div className="transform hover:scale-105 transition-transform duration-500">
+          {/* Control Panel - full width on mobile, appears below house */}
+          <div className="flex justify-center w-full order-2 lg:order-2">
+            <div className="transform hover:scale-105 transition-transform duration-500 w-full max-w-md lg:max-w-none">
               <ControlPanel 
                 rooms={allRooms}
                 onLightToggle={handleLightToggle}
@@ -197,41 +197,41 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Enhanced Footer Info */}
-        <div className="mt-16 text-center">
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-2xl p-8 max-w-4xl mx-auto border border-white/20">
-            <div className="mb-6">
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+        {/* Enhanced Footer Info - mobile responsive */}
+        <div className="mt-12 sm:mt-16 text-center">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-2xl p-4 sm:p-8 max-w-4xl mx-auto border border-white/20">
+            <div className="mb-4 sm:mb-6">
+              <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
                 📊 System-Information
               </h3>
-              <p className="text-gray-600">Technische Details Ihres Smart Home Systems</p>
+              <p className="text-gray-600 text-sm sm:text-base">Technische Details Ihres Smart Home Systems</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                <div className="text-3xl mb-2">🏢</div>
-                <div className="text-2xl font-bold text-blue-600">2</div>
-                <div className="text-sm text-gray-600 font-medium">Stockwerke</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 sm:p-4 border border-blue-200">
+                <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">🏢</div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">2</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium">Stockwerke</div>
               </div>
               
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                <div className="text-3xl mb-2">🚪</div>
-                <div className="text-2xl font-bold text-purple-600">4</div>
-                <div className="text-sm text-gray-600 font-medium">Zimmer</div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-3 sm:p-4 border border-purple-200">
+                <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">🚪</div>
+                <div className="text-xl sm:text-2xl font-bold text-purple-600">4</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium">Zimmer</div>
               </div>
               
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
-                <div className="text-3xl mb-2">📡</div>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-3 sm:p-4 border border-green-200">
+                <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">📡</div>
                 <div className="text-xs font-mono text-green-600 truncate">{getMqttBrokerUrl().split('//')[1]}</div>
-                <div className="text-sm text-gray-600 font-medium">MQTT Broker</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium">MQTT Broker</div>
               </div>
               
-              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-4 border border-yellow-200">
-                <div className="text-3xl mb-2">
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-3 sm:p-4 border border-yellow-200">
+                <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">
                   {connectionStatus === 'connected' ? '✅' : 
                    connectionStatus === 'connecting' ? '🔄' : '❌'}
                 </div>
-                <div className={`text-sm font-bold ${
+                <div className={`text-xs sm:text-sm font-bold ${
                   connectionStatus === 'connected' ? 'text-green-600' : 
                   connectionStatus === 'connecting' ? 'text-yellow-600' : 
                   'text-red-600'
@@ -239,18 +239,20 @@ export default function Home() {
                   {connectionStatus === 'connected' ? 'Verbunden' : 
                    connectionStatus === 'connecting' ? 'Verbinde...' : 'Getrennt'}
                 </div>
-                <div className="text-sm text-gray-600 font-medium">Verbindung</div>
+                <div className="text-xs sm:text-sm text-gray-600 font-medium">Verbindung</div>
               </div>
             </div>
             
-            <div className="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
-              <div className="flex items-center justify-center text-sm text-gray-600">
-                <span className="mr-2">⚡</span>
-                <span className="font-medium">Echtzeit-Synchronisation über MQTT</span>
-                <span className="ml-2">•</span>
-                <span className="ml-2">WebSocket-Protokoll</span>
-                <span className="ml-2">•</span>
-                <span className="ml-2">Multi-Device Support</span>
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
+              <div className="flex flex-col sm:flex-row items-center justify-center text-xs sm:text-sm text-gray-600 space-y-1 sm:space-y-0 sm:space-x-2">
+                <span className="flex items-center">
+                  <span className="mr-1">⚡</span>
+                  <span className="font-medium">Echtzeit-Synchronisation über MQTT</span>
+                </span>
+                <span className="hidden sm:inline">•</span>
+                <span>WebSocket-Protokoll</span>
+                <span className="hidden sm:inline">•</span>
+                <span>Multi-Device Support</span>
               </div>
             </div>
           </div>
