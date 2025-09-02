@@ -98,7 +98,7 @@ npm run dev
 
 **🌐 Anwendung öffnen:**
 - **Web-Interface**: [http://localhost:3000](http://localhost:3000)
-- **WebSocket MQTT**: ws://localhost:3000/mqtt (automatisch)
+- **WebSocket MQTT**: Automatische Erkennung (relative URL: `wss://yourhost/mqtt`)
 
 ## 📦 Verfügbare Docker Images
 
@@ -184,13 +184,17 @@ smarthome/room_2_right/light  # Badezimmer
 
 Erstellen Sie eine `.env.local` Datei:
 ```bash
-# MQTT Broker URL (optional, default: ws://localhost:3000/mqtt)
-NEXT_PUBLIC_MQTT_BROKER_URL=ws://localhost:3000/mqtt
+# MQTT Broker URL (optional)
+# "auto" = Automatische Erkennung basierend auf Browser-URL
+# Oder spezifische URL: ws://your-mqtt-broker:port/mqtt
+NEXT_PUBLIC_MQTT_BROKER_URL=auto
 
 # Server-seitige MQTT Verbindung (für Docker)
 MQTT_BROKER_HOST=127.0.0.1
 MQTT_BROKER_PORT=1883
 ```
+
+> **💡 Smart URL Detection**: Bei `NEXT_PUBLIC_MQTT_BROKER_URL=auto` wird die WebSocket-URL automatisch basierend auf der aktuellen Browser-URL generiert. Dies funktioniert perfekt mit Ingress, Reverse Proxies und verschiedenen Deployment-Umgebungen!
 
 ### Verfügbare Scripts
 

@@ -4,9 +4,14 @@
 
 ### Verbindung
 
-**Endpoint:** `ws://localhost:3000/mqtt`
+**Endpoint:** 
+- **Entwicklung:** `ws://localhost:3000/mqtt`
+- **Production:** `wss://your-domain/mqtt` (automatische Erkennung)
+- **Docker/K8s:** Relative URL basierend auf aktueller Domain
 
 **Protokoll:** WebSocket über MQTT-Proxy
+
+> **💡 Smart URL Detection**: Die Anwendung erkennt automatisch die korrekte WebSocket-URL basierend auf der Browser-URL. Konfiguration über `NEXT_PUBLIC_MQTT_BROKER_URL=auto` in den Environment Variables.
 
 ### 📨 Nachrichtenformate
 

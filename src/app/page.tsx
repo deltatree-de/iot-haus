@@ -56,9 +56,29 @@ export default function Home() {
     }));
   }, []);
 
+  // Generate WebSocket URL dynamically based on current window location
+  const getMqttBrokerUrl = useCallback(() => {
+    if (typeof window === 'undefined') {
+      // Server-side fallback
+      const envUrl = process.env.NEXT_PUBLIC_MQTT_BROKER_URL;
+      return envUrl && envUrl !== 'auto' ? envUrl : 'ws://localhost:3000/mqtt';
+    }
+    
+    // Check if environment variable is set and use it if it's not localhost or auto
+    const envUrl = process.env.NEXT_PUBLIC_MQTT_BROKER_URL;
+    if (envUrl && envUrl !== 'auto' && !envUrl.includes('localhost')) {
+      return envUrl;
+    }
+    
+    // Generate relative WebSocket URL based on current window location
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    return `${protocol}//${host}/mqtt`;
+  }, []);
+
   // MQTT Hook
   const { publishMessage } = useMqtt({
-    brokerUrl: process.env.NEXT_PUBLIC_MQTT_BROKER_URL || 'ws://localhost:3000/mqtt',
+    brokerUrl: getMqttBrokerUrl(),
     topics: MQTT_TOPICS,
     onMessage: handleMqttMessage,
     onConnectionChange: setConnectionStatus,
@@ -134,7 +154,7 @@ export default function Home() {
                 <strong>Zimmer:</strong> 4
               </div>
               <div>
-                <strong>MQTT Broker:</strong> {process.env.NEXT_PUBLIC_MQTT_BROKER_URL || 'ws://localhost:3000/mqtt'}
+                <strong>MQTT Broker:</strong> {getMqttBrokerUrl()}
               </div>
               <div>
                 <strong>Status:</strong> 
