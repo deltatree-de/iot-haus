@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const mqtt = require('mqtt');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = process.env.HOSTNAME || '0.0.0.0'; // Bind to all interfaces
 const port = parseInt(process.env.PORT, 10) || 3000;
 
 // Initialize Next.js
@@ -33,12 +33,30 @@ app.prepare().then(() => {
 
   const clientSubscriptions = new Map();
   const activeClients = new Set();
+  let mqttReady = false;
 
   mqttClient.on('connect', () => {
     console.log('MQTT Proxy connected to broker');
+    mqttReady = true;
+  });
+
+  mqttClient.on('error', (error) => {
+    console.error('MQTT Client Error:', error);
+    mqttReady = false;
+  });
+
+  mqttClient.on('offline', () => {
+    console.log('MQTT Client went offline');
+    mqttReady = false;
+  });
+
+  mqttClient.on('reconnect', () => {
+    console.log('MQTT Client reconnecting...');
+    mqttReady = false;
   });
 
   mqttClient.on('message', (topic, payload) => {
+    console.log('MQTT message received:', topic, payload.toString());
     const message = {
       type: 'message',
       topic: topic,
@@ -51,6 +69,7 @@ app.prepare().then(() => {
       if (client.readyState === WebSocket.OPEN) {
         const subscriptions = clientSubscriptions.get(client) || new Set();
         if (subscriptions.has(topic) || Array.from(subscriptions).some(sub => topicMatch(sub, topic))) {
+          console.log('Sending message to WebSocket client');
           client.send(JSON.stringify(message));
         }
       }
@@ -68,16 +87,30 @@ app.prepare().then(() => {
         
         switch (message.type) {
           case 'subscribe':
+            console.log('Subscribing to MQTT topic:', message.topic);
             const subscriptions = clientSubscriptions.get(ws);
             subscriptions.add(message.topic);
+            
+            if (!mqttReady) {
+              console.error('MQTT not ready, cannot subscribe');
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'MQTT broker not ready',
+                error: 'MQTT client not connected'
+              }));
+              return;
+            }
+            
             mqttClient.subscribe(message.topic, (err) => {
               if (err) {
+                console.error('MQTT Subscribe Error:', err);
                 ws.send(JSON.stringify({
                   type: 'error',
                   message: `Failed to subscribe to ${message.topic}`,
                   error: err.message
                 }));
               } else {
+                console.log('MQTT subscription successful:', message.topic);
                 ws.send(JSON.stringify({
                   type: 'subscribed',
                   topic: message.topic
@@ -102,14 +135,28 @@ app.prepare().then(() => {
             break;
 
           case 'publish':
+            console.log('Publishing to MQTT:', message.topic, message.payload);
+            
+            if (!mqttReady) {
+              console.error('MQTT not ready, cannot publish');
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'MQTT broker not ready',
+                error: 'MQTT client not connected'
+              }));
+              return;
+            }
+            
             mqttClient.publish(message.topic, message.payload, (err) => {
               if (err) {
+                console.error('MQTT Publish Error:', err);
                 ws.send(JSON.stringify({
                   type: 'error',
                   message: `Failed to publish to ${message.topic}`,
                   error: err.message
                 }));
               } else {
+                console.log('MQTT message published successfully');
                 ws.send(JSON.stringify({
                   type: 'published',
                   topic: message.topic

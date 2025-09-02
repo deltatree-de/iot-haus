@@ -8,6 +8,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
       - NEXT_PUBLIC_MQTT_BROKER_URL=auto
       - MQTT_BROKER_HOST=127.0.0.1
       - MQTT_BROKER_PORT=1883
