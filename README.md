@@ -1,17 +1,10 @@
 # 🏠 Smart Home Control System
 
 ![Docker Build](https://github.com/deltatree-de/iot-haus/actions/workflows/docker-publish.yml/badge.svg)
-![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)art Home Control System
-
-![Docker Build](https://github.com/deltatree/milan/actions/workflows/docker-publish.yml/badge.svg)
-![Release](https://github.com/deltatree/milan/actions/workflows/release.yml/badge.svg)
+![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-Eine moderne Singl# Neueste Version
-docker pull ghcr.io/deltatree-de/iot-haus:latest
-
-# Spezifische Version
-docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0e Application (SPA) zur Steuerung der Beleuchtung in einem 2-stöckigen Haus mit MQTT-Integration für Echtzeit-Synchronisation.
+Eine moderne Single Page Application (SPA) zur Steuerung der Beleuchtung in einem 2-stöckigen Haus mit MQTT-Integration für Echtzeit-Synchronisation.
 
 ## ✨ Features
 
@@ -73,7 +66,7 @@ docker run -d \
   --name smart-home \
   -p 3000:3000 \
   --restart unless-stopped \
-  ghcr.io/deltatree/milan:latest
+  ghcr.io/deltatree-de/iot-haus:latest
 
 # Mit Docker Compose (Production)
 docker-compose -f docker-compose.prod.yml up -d
@@ -113,13 +106,13 @@ npm run dev
 
 ```bash
 # Latest Development Build
-docker pull ghcr.io/deltatree/milan:latest
+docker pull ghcr.io/deltatree-de/iot-haus:latest
 
 # Spezifische Release Version
-docker pull ghcr.io/deltatree/milan:v1.0.0
+docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0
 
 # Branch Builds
-docker pull ghcr.io/deltatree/milan:main
+docker pull ghcr.io/deltatree-de/iot-haus:main
 ```
 
 **Multi-Platform Support:**
@@ -228,10 +221,10 @@ Das Projekt nutzt GitHub Actions für automatische Builds und Deployments:
 **GitHub Container Registry:**
 ```bash
 # Latest Version
-docker pull ghcr.io/deltatree/milan:latest
+docker pull ghcr.io/deltatree-de/iot-haus:latest
 
 # Spezifische Version  
-docker pull ghcr.io/deltatree/milan:v1.0.0
+docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0
 ```
 
 **Automatische Releases:**
@@ -368,7 +361,7 @@ max_connections 1000
      -p 3000:3000 \
      --restart unless-stopped \
      -e NODE_ENV=production \
-     ghcr.io/deltatree/milan:latest
+     ghcr.io/deltatree-de/iot-haus:latest
    ```
 
 3. **Cloud Deployment (Vercel/Netlify):**
@@ -422,7 +415,7 @@ docker-compose down && docker-compose up -d
 DEBUG=* npm run dev
 
 # Container mit erweiterten Logs
-docker run -e ACTIONS_STEP_DEBUG=true ghcr.io/deltatree/milan:latest
+docker run -e ACTIONS_STEP_DEBUG=true ghcr.io/deltatree-de/iot-haus:latest
 ```
 
 ### Topics
@@ -524,10 +517,10 @@ Das Projekt nutzt GitHub Actions für automatische Builds und Deployments:
 **GitHub Container Registry:**
 ```bash
 # Latest Version
-docker pull ghcr.io/deltatree/milan:latest
+docker pull ghcr.io/deltatree-de/iot-haus:latest
 
 # Spezifische Version
-docker pull ghcr.io/deltatree/milan:v1.0.0
+docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0
 ```
 
 **Automatische Releases:**
