@@ -1,0 +1,33 @@
+# Docker Compose file for Smart Home Control System
+# Production deployment using GitHub Container Registry
+
+services:
+  smart-home:
+    # Use GitHub Container Registry image instead of building locally
+    # image: ghcr.io/deltatree/milan:latest
+    # For local development, uncomment the build section below:
+    build: .
+    ports:
+      - "3000:3000"    # HTTP Server with WebSocket MQTT proxy
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_MQTT_BROKER_URL=ws://localhost:3000/mqtt
+      - MQTT_BROKER_HOST=127.0.0.1
+      - MQTT_BROKER_PORT=1883
+    volumes:
+      - mosquitto-data:/var/lib/mosquitto
+      - mosquitto-logs:/var/log/mosquitto
+    restart: unless-stopped
+    container_name: smart-home-control
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mosquitto-data:
+    driver: local
+  mosquitto-logs:
+    driver: local

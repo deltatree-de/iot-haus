@@ -3,25 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "node server.js",
+    "build": "next build",
+    "start": "node server.js",
+    "lint": "eslint",
+    "docker:build": "docker build -t smart-home-control .",
+    "docker:run": "docker run -d --name smart-home -p 3000:3000 smart-home-control",
+    "docker:stop": "docker stop smart-home && docker rm smart-home",
+    "docker:logs": "docker logs -f smart-home",
+    "compose:up": "docker-compose up -d --build",
+    "compose:down": "docker-compose down",
+    "compose:logs": "docker-compose logs -f"
   },
   "dependencies": {
+    "@types/mqtt": "^0.0.34",
+    "@types/ws": "^8.18.1",
+    "mqtt": "^5.14.0",
+    "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.2"
+    "ws": "^8.18.3"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
