@@ -11,6 +11,8 @@ Eine moderne Single Page Application (SPA) zur Steuerung der Beleuchtung in eine
 - **🏠 Hausvisualisierung**: Interaktive SVG-Darstellung eines 2-stöckigen Hauses mit jeweils 2 Zimmern pro Stockwerk
 - **💡 Echtzeit-Lichtsteuerung**: Steuerung der Beleuchtung über MQTT-Broker mit WebSocket-Proxy
 - **👥 Multi-User-Unterstützung**: Gleichzeitige Nutzung von mehreren Benutzern mit automatischer Synchronisation
+- **📱 Multi-Device-Sync**: Änderungen werden automatisch zwischen allen verbundenen Geräten synchronisiert
+- **💾 Persistent State**: Lichtzustände werden lokal gespeichert und beim Neustart wiederhergestellt
 - **📱 Responsive Design**: Optimiert für Desktop und Mobile
 - **🔗 Live-Status**: Echtzeit-Anzeige des Verbindungsstatus und Lichtzustände
 - **🐳 Docker-Ready**: Vollständig containerisiert mit integriertem MQTT-Broker

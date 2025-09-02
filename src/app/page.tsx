@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { House, Room, LightState } from '@/types';
 import HouseVisualization from '@/components/HouseVisualization';
 import ControlPanel from '@/components/ControlPanel';
@@ -35,8 +35,29 @@ const MQTT_TOPICS = [
 ];
 
 export default function Home() {
-  const [house, setHouse] = useState<House>(initialHouse);
+  // Initialize house state from localStorage if available
+  const [house, setHouse] = useState<House>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('smart-home-state');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (error) {
+          console.error('Failed to parse saved state:', error);
+        }
+      }
+    }
+    return initialHouse;
+  });
+  
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('smart-home-state', JSON.stringify(house));
+    }
+  }, [house]);
 
   // Get all rooms in a flat array
   const allRooms = house.floors.flatMap(floor => floor.rooms);
@@ -84,6 +105,26 @@ export default function Home() {
     onConnectionChange: setConnectionStatus,
   });
 
+  // Sync initial state when connected
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      // Small delay to ensure connection is fully established
+      const timeoutId = setTimeout(() => {
+        allRooms.forEach(room => {
+          const topic = `smarthome/${room.id}/light`;
+          const lightMessage: LightState = {
+            roomId: room.id,
+            isOn: room.lightOn,
+            timestamp: Date.now(),
+          };
+          publishMessage(topic, lightMessage);
+        });
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [connectionStatus, allRooms, publishMessage]);
+
   // Handle light toggle
   const handleLightToggle = useCallback((roomId: string) => {
     const room = allRooms.find(r => r.id === roomId);
@@ -92,27 +133,18 @@ export default function Home() {
     const newLightState = !room.lightOn;
     const topic = `smarthome/${roomId}/light`;
     
-    // Update local state immediately for responsive UI
-    setHouse(prevHouse => ({
-      ...prevHouse,
-      floors: prevHouse.floors.map(floor => ({
-        ...floor,
-        rooms: floor.rooms.map(r => 
-          r.id === roomId 
-            ? { ...r, lightOn: newLightState }
-            : r
-        ),
-      })),
-    }));
-
-    // Publish to MQTT
-    const lightState: LightState = {
+    // Create MQTT message
+    const lightMessage: LightState = {
       roomId,
       isOn: newLightState,
       timestamp: Date.now(),
     };
 
-    publishMessage(topic, lightState);
+    // Publish to MQTT - this will trigger onMessage for ALL connected clients
+    publishMessage(topic, lightMessage);
+    
+    // Note: We DON'T update local state here - it will be updated via MQTT onMessage
+    // This ensures all devices stay in sync
   }, [allRooms, publishMessage]);
 
   return (
