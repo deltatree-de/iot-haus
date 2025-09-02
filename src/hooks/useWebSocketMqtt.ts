@@ -8,11 +8,15 @@ interface UseWebSocketMqttOptions {
   onConnectionChange: (status: 'connected' | 'disconnected' | 'connecting') => void;
 }
 
+// Generate a unique client ID to avoid message loops
+const CLIENT_ID = `client_${Math.random().toString(36).substr(2, 9)}_${Date.now()}`;
+
 export function useWebSocketMqtt({ url, topics, onMessage, onConnectionChange }: UseWebSocketMqttOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const subscribedTopicsRef = useRef<Set<string>>(new Set());
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const sentMessagesRef = useRef<Set<string>>(new Set()); // Track sent messages to prevent loops
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -57,6 +61,24 @@ export function useWebSocketMqtt({ url, topics, onMessage, onConnectionChange }:
             case 'message':
               try {
                 const lightState: LightState = JSON.parse(data.payload);
+                console.log('🔌 WebSocket MQTT message received:', { topic: data.topic, lightState });
+                
+                // Temporarily disable duplicate filtering to debug
+                // Create a unique message identifier to prevent rapid duplicate processing
+                // const messageId = `${data.topic}_${lightState.roomId}_${lightState.isOn}_${lightState.timestamp}`;
+                
+                // Check if this exact message was just processed (prevent rapid duplicates)
+                // if (sentMessagesRef.current.has(messageId)) {
+                //   console.log('⏭️ Skipping duplicate message:', messageId);
+                //   // Remove from tracking after a short delay to allow processing
+                //   setTimeout(() => {
+                //     sentMessagesRef.current.delete(messageId);
+                //   }, 100);
+                //   return;
+                // }
+                
+                // Always process the message to update UI - even our own messages
+                console.log('✅ Processing MQTT message, calling onMessage...');
                 onMessage(data.topic, lightState);
               } catch (error) {
                 console.error('Error parsing MQTT message payload:', error);
@@ -118,13 +140,28 @@ export function useWebSocketMqtt({ url, topics, onMessage, onConnectionChange }:
 
   const publishMessage = useCallback((topic: string, message: LightState) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const payload = JSON.stringify(message);
+      // Add client ID for identification but don't use it for filtering
+      const messageWithClientId = {
+        ...message,
+        clientId: CLIENT_ID
+      };
+      
+      // Track the message briefly to prevent rapid duplicates
+      const messageId = `${topic}_${message.roomId}_${message.isOn}_${message.timestamp}`;
+      sentMessagesRef.current.add(messageId);
+      
+      // Clean up old message IDs after 1 second
+      setTimeout(() => {
+        sentMessagesRef.current.delete(messageId);
+      }, 1000);
+      
+      const payload = JSON.stringify(messageWithClientId);
       wsRef.current.send(JSON.stringify({
         type: 'publish',
         topic: topic,
         payload: payload
       }));
-      console.log(`Published to ${topic}:`, message);
+      console.log(`Published to ${topic}:`, messageWithClientId);
     } else {
       console.warn('WebSocket not connected, cannot publish message');
     }

@@ -12,10 +12,11 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
   const roomBackgroundColor = room.lightOn ? '#FFFBEB' : '#F8FAFC';
   const roomBorderColor = room.lightOn ? '#F59E0B' : '#CBD5E1';
 
-  const roomX = room.position === 'left' ? 50 : 200;
-  const roomY = room.floor === 2 ? 50 : 200;
-  const centerX = roomX + 60;
-  const centerY = roomY + 60;
+  // Adjusted coordinates for the new country house layout - properly fit into floors
+  const roomX = room.position === 'left' ? 100 : 270;
+  const roomY = room.floor === 2 ? 200 : 295;
+  const centerX = roomX + 40;
+  const centerY = roomY + 40;
 
   // Shorten room names for better fit
   const getShortRoomName = (name: string) => {
@@ -35,40 +36,46 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
         <rect
           x={roomX - 5}
           y={roomY - 5}
-          width="130"
-          height="130"
+          width="90"
+          height="70"
           fill={lightGlow}
-          opacity="0.3"
-          rx="15"
+          opacity="0.4"
+          rx="12"
           className="animate-pulse"
         />
       )}
       
-      {/* Room Rectangle with modern styling and touch optimization */}
+      {/* Large invisible touch area for better mobile interaction */}
       <rect
-        x={roomX}
-        y={roomY}
-        width="120"
-        height="120"
-        fill={roomBackgroundColor}
-        stroke={roomBorderColor}
-        strokeWidth="3"
-        rx="10"
-        className="cursor-pointer transition-all duration-500 hover:stroke-blue-500 hover:stroke-4 hover:shadow-lg touch-manipulation"
-        onClick={() => onLightToggle(room.id)}
-        onTouchStart={(e) => {
-          e.currentTarget.style.transform = 'scale(0.95)';
-          e.currentTarget.style.filter = 'brightness(0.9)';
+        x={roomX - 10}
+        y={roomY - 10}
+        width="100"
+        height="100"
+        fill="transparent"
+        className="cursor-pointer"
+        onClick={() => {
+          console.log('Room clicked:', room.id);
+          onLightToggle(room.id);
         }}
-        onTouchEnd={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.filter = 'brightness(1)';
-        }}
-        filter="url(#roomShadow)"
         style={{ 
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation'
         }}
+      />
+      
+      {/* Room Rectangle with modern styling */}
+      <rect
+        x={roomX}
+        y={roomY}
+        width="80"
+        height="60"
+        fill={roomBackgroundColor}
+        stroke={roomBorderColor}
+        strokeWidth="2"
+        rx="6"
+        className="transition-all duration-300 pointer-events-none"
+        filter="url(#roomShadow)"
+        data-room={room.id}
       />
       
       {/* Room gradient overlay */}
@@ -87,54 +94,54 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
       </defs>
       
       <rect
-        x={roomX + 2}
-        y={roomY + 2}
-        width="116"
-        height="116"
+        x={roomX + 1}
+        y={roomY + 1}
+        width="78"
+        height="58"
         fill={`url(#roomGradient-${room.id})`}
-        rx="8"
+        rx="5"
         className="pointer-events-none"
       />
       
-      {/* Modern Window with frame */}
+      {/* Small Window inside room */}
       <rect
-        x={roomX + 20}
-        y={roomY + 20}
-        width="35"
-        height="25"
+        x={roomX + 10}
+        y={roomY + 10}
+        width="20"
+        height="15"
         fill={windowColor}
         stroke="#1E293B"
-        strokeWidth="2"
-        rx="3"
+        strokeWidth="1"
+        rx="2"
         className="transition-all duration-500"
       />
       
       {/* Window cross frame */}
       <line 
-        x1={roomX + 37.5} 
-        y1={roomY + 20} 
-        x2={roomX + 37.5} 
-        y2={roomY + 45} 
+        x1={roomX + 20} 
+        y1={roomY + 10} 
+        x2={roomX + 20} 
+        y2={roomY + 25} 
         stroke="#1E293B" 
-        strokeWidth="1"
+        strokeWidth="0.5"
       />
       <line 
-        x1={roomX + 20} 
-        y1={roomY + 32.5} 
-        x2={roomX + 55} 
-        y2={roomY + 32.5} 
+        x1={roomX + 10} 
+        y1={roomY + 17.5} 
+        x2={roomX + 30} 
+        y2={roomY + 17.5} 
         stroke="#1E293B" 
-        strokeWidth="1"
+        strokeWidth="0.5"
       />
       
-      {/* Modern Light Fixture */}
+      {/* Compact Light Fixture */}
       <circle
         cx={centerX}
         cy={centerY}
-        r="12"
+        r="8"
         fill={lightColor}
         stroke="#374151"
-        strokeWidth="2"
+        strokeWidth="1"
         className="transition-all duration-500"
         filter={room.lightOn ? "url(#lightGlow)" : "none"}
       />
@@ -143,43 +150,43 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
       <circle
         cx={centerX}
         cy={centerY}
-        r="8"
+        r="5"
         fill={room.lightOn ? "#FFFFFF" : "#9CA3AF"}
         opacity={room.lightOn ? "0.9" : "0.5"}
       />
       
       {/* Light base */}
       <rect
-        x={centerX - 4}
-        y={centerY + 8}
-        width="8"
-        height="4"
+        x={centerX - 2}
+        y={centerY + 5}
+        width="4"
+        height="2"
         fill="#374151"
         rx="1"
       />
       
-      {/* Light rays when on - modern design */}
+      {/* Light rays when on - compact design */}
       {room.lightOn && (
         <g opacity="0.8">
           {/* Outer light circle */}
           <circle
             cx={centerX}
             cy={centerY}
-            r="25"
+            r="15"
             fill="none"
             stroke="#FCD34D"
-            strokeWidth="2"
+            strokeWidth="1"
             opacity="0.4"
             className="animate-pulse"
           />
           
           {/* Light rays */}
-          {Array.from({length: 8}).map((_, i) => {
-            const angle = (i * 45) * Math.PI / 180;
-            const startX = centerX + Math.cos(angle) * 15;
-            const startY = centerY + Math.sin(angle) * 15;
-            const endX = centerX + Math.cos(angle) * 30;
-            const endY = centerY + Math.sin(angle) * 30;
+          {Array.from({length: 6}).map((_, i) => {
+            const angle = (i * 60) * Math.PI / 180;
+            const startX = centerX + Math.cos(angle) * 8;
+            const startY = centerY + Math.sin(angle) * 8;
+            const endX = centerX + Math.cos(angle) * 18;
+            const endY = centerY + Math.sin(angle) * 18;
             
             return (
               <line
@@ -189,7 +196,7 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
                 x2={endX}
                 y2={endY}
                 stroke="#FCD34D"
-                strokeWidth="3"
+                strokeWidth="2"
                 opacity="0.6"
                 strokeLinecap="round"
               />
@@ -200,7 +207,7 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
           <circle
             cx={centerX}
             cy={centerY}
-            r="20"
+            r="12"
             fill="#FEF3C7"
             opacity="0.2"
           />
@@ -209,32 +216,23 @@ export default function RoomComponent({ room, onLightToggle }: RoomComponentProp
       
       {/* Room Label with dynamic sizing */}
       <rect
-        x={centerX - 35}
-        y={roomY + 85}
-        width="70"
-        height="20"
+        x={centerX - 25}
+        y={roomY + 45}
+        width="50"
+        height="12"
         fill={room.lightOn ? "#1E293B" : "#64748B"}
-        rx="10"
+        rx="6"
         opacity="0.9"
       />
       <text
         x={centerX}
-        y={roomY + 98}
+        y={roomY + 53}
         textAnchor="middle"
         className="fill-white text-sm font-bold pointer-events-none"
-        style={{ fontSize: '9px' }}
+        style={{ fontSize: '7px' }}
       >
         {getShortRoomName(room.name)}
       </text>
-      
-      {/* Light Status Indicator */}
-      <circle
-        cx={room.position === 'left' ? 135 : 285}
-        cy={room.floor === 2 ? 75 : 225}
-        r="4"
-        fill={room.lightOn ? '#10B981' : '#EF4444'}
-        className="transition-all duration-300"
-      />
     </g>
   );
 }

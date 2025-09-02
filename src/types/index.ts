@@ -20,6 +20,7 @@ export interface LightState {
   roomId: string;
   isOn: boolean;
   timestamp: number;
+  clientId?: string; // Optional client ID to prevent message loops
 }
 
 export interface MqttMessage {

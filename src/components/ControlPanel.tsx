@@ -98,25 +98,38 @@ export default function ControlPanel({ rooms, onLightToggle, connectionStatus }:
                 </div>
               </div>
               
-              <button
-                onClick={() => onLightToggle(room.id)}
-                disabled={connectionStatus !== 'connected'}
-                className={`
-                  relative inline-flex h-7 w-12 sm:h-8 sm:w-14 items-center rounded-full transition-all duration-300 shadow-sm flex-shrink-0 ml-3
-                  ${room.lightOn ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-gray-300 to-gray-400'}
-                  ${connectionStatus !== 'connected' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-md transform hover:scale-105'}
-                  ${room.lightOn ? 'shadow-blue-200' : 'shadow-gray-200'}
-                `}
-              >
-                <span
+              {/* Enlarged touch area for better mobile interaction */}
+              <div className="relative flex-shrink-0 ml-3">
+                <button
+                  onClick={() => {
+                    console.log('Toggle clicked:', room.id);
+                    onLightToggle(room.id);
+                  }}
+                  disabled={connectionStatus !== 'connected'}
                   className={`
-                    inline-block h-5 w-5 sm:h-6 sm:w-6 transform rounded-full bg-white shadow-sm transition-transform duration-300 flex items-center justify-center text-xs
-                    ${room.lightOn ? 'translate-x-6 sm:translate-x-7' : 'translate-x-1'}
+                    relative inline-flex h-10 w-16 sm:h-8 sm:w-14 items-center rounded-full transition-all duration-300 shadow-sm
+                    ${room.lightOn ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-gray-300 to-gray-400'}
+                    ${connectionStatus !== 'connected' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-md transform hover:scale-105 active:scale-95'}
+                    ${room.lightOn ? 'shadow-blue-200' : 'shadow-gray-200'}
+                    touch-manipulation
                   `}
+                  style={{ 
+                    WebkitTapHighlightColor: 'transparent',
+                    touchAction: 'manipulation',
+                    minHeight: '44px', // Apple's recommended minimum touch target
+                    minWidth: '44px'
+                  }}
                 >
-                  {room.lightOn ? '☀️' : '🌙'}
-                </span>
-              </button>
+                  <span
+                    className={`
+                      inline-block h-6 w-6 sm:h-6 sm:w-6 transform rounded-full bg-white shadow-sm transition-transform duration-300 flex items-center justify-center text-xs
+                      ${room.lightOn ? 'translate-x-8 sm:translate-x-7' : 'translate-x-1'}
+                    `}
+                  >
+                    {room.lightOn ? '☀️' : '🌙'}
+                  </span>
+                </button>
+              </div>
             </div>
             
             {/* Status indicator */}

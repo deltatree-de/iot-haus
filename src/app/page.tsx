@@ -64,17 +64,28 @@ export default function Home() {
 
   // Handle incoming MQTT messages
   const handleMqttMessage = useCallback((topic: string, message: LightState) => {
-    setHouse(prevHouse => ({
-      ...prevHouse,
-      floors: prevHouse.floors.map(floor => ({
-        ...floor,
-        rooms: floor.rooms.map(room => 
-          room.id === message.roomId 
-            ? { ...room, lightOn: message.isOn }
-            : room
-        ),
-      })),
-    }));
+    console.log('📨 MQTT message received in handleMqttMessage:', { topic, message });
+    
+    setHouse(prevHouse => {
+      console.log('🏠 Previous house state:', prevHouse);
+      
+      const newHouse = {
+        ...prevHouse,
+        floors: prevHouse.floors.map(floor => ({
+          ...floor,
+          rooms: floor.rooms.map(room => {
+            if (room.id === message.roomId) {
+              console.log(`💡 Updating room ${room.id}: ${room.lightOn} → ${message.isOn}`);
+              return { ...room, lightOn: message.isOn };
+            }
+            return room;
+          }),
+        })),
+      };
+      
+      console.log('🏠 New house state:', newHouse);
+      return newHouse;
+    });
   }, []);
 
   // Generate WebSocket URL dynamically based on current window location
@@ -105,9 +116,15 @@ export default function Home() {
     onConnectionChange: setConnectionStatus,
   });
 
-  // Sync initial state when connected
+  // Sync initial state when connected - only once per session
+  const [hasInitialSync, setHasInitialSync] = useState(false);
+  
   useEffect(() => {
-    if (connectionStatus === 'connected') {
+    if (connectionStatus === 'connected' && !hasInitialSync) {
+      // Mark that we've done initial sync to prevent loops
+      setHasInitialSync(true);
+      
+      console.log('Performing initial MQTT state sync');
       // Small delay to ensure connection is fully established
       const timeoutId = setTimeout(() => {
         allRooms.forEach(room => {
@@ -123,15 +140,40 @@ export default function Home() {
       
       return () => clearTimeout(timeoutId);
     }
-  }, [connectionStatus, allRooms, publishMessage]);
+    
+    // Reset sync flag when disconnected
+    if (connectionStatus === 'disconnected') {
+      setHasInitialSync(false);
+    }
+  }, [connectionStatus, allRooms, publishMessage, hasInitialSync]);
 
   // Handle light toggle
   const handleLightToggle = useCallback((roomId: string) => {
+    console.log('🔘 Light toggle clicked for room:', roomId);
+    
     const room = allRooms.find(r => r.id === roomId);
-    if (!room) return;
+    if (!room) {
+      console.log('❌ Room not found:', roomId);
+      return;
+    }
 
     const newLightState = !room.lightOn;
     const topic = `smarthome/${roomId}/light`;
+    
+    console.log(`💡 Toggling ${roomId}: ${room.lightOn} → ${newLightState}`);
+    
+    // Immediate UI update for responsive feel
+    setHouse(prevHouse => ({
+      ...prevHouse,
+      floors: prevHouse.floors.map(floor => ({
+        ...floor,
+        rooms: floor.rooms.map(r => 
+          r.id === roomId 
+            ? { ...r, lightOn: newLightState }
+            : r
+        ),
+      })),
+    }));
     
     // Create MQTT message
     const lightMessage: LightState = {
@@ -140,11 +182,9 @@ export default function Home() {
       timestamp: Date.now(),
     };
 
-    // Publish to MQTT - this will trigger onMessage for ALL connected clients
+    // Publish to MQTT for multi-device sync
+    console.log('📤 Publishing MQTT message:', lightMessage);
     publishMessage(topic, lightMessage);
-    
-    // Note: We DON'T update local state here - it will be updated via MQTT onMessage
-    // This ensures all devices stay in sync
   }, [allRooms, publishMessage]);
 
   return (
