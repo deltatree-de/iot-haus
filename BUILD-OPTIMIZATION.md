@@ -3,9 +3,9 @@
 ## Implemented Optimizations
 
 ### 🎯 Split Build Strategy
-- **Fast Build Job**: AMD64-only builds for regular commits/PRs (~3-5 minutes)
-- **Release Build Job**: Multi-platform builds only for tagged releases (~8-10 minutes)
-- **Conditional Execution**: Smart job selection based on git refs
+- **Fast Build Job**: AMD64-only builds for PRs only (~3-5 minutes)
+- **Multi-Platform Build Job**: AMD64 + ARM64 builds for all main branch pushes and releases (~8-12 minutes)
+- **Conditional Execution**: Smart job selection based on event type
 
 ### 🏗️ Docker Optimizations
 - **Multi-stage Dockerfile**: Separate dependency, build, and runtime stages
@@ -31,18 +31,19 @@
 - ❌ **Development**: Excessive resource usage
 
 ### After Optimization
-- ✅ **Regular Commits**: ~3-5 minutes (AMD64 only)
-- ✅ **Pull Requests**: ~3-5 minutes (validation only)
-- ✅ **Tagged Releases**: ~8-10 minutes (full multi-platform)
+- ✅ **Pull Requests**: ~3-5 minutes (AMD64 validation only)
+- ✅ **Main Branch Pushes**: ~8-12 minutes (full multi-platform)
+- ✅ **Tagged Releases**: ~8-12 minutes (full multi-platform)
 - ✅ **Cache Hits**: Even faster subsequent builds
+- ✅ **ARM64 Support**: Full Apple Silicon & Raspberry Pi compatibility
 
 ## Build Job Matrix
 
 | Trigger | Job | Platforms | Est. Time | Purpose |
 |---------|-----|-----------|-----------|---------|
-| `push` to main/master | `build-fast` | linux/amd64 | 3-5 min | Development |
 | `pull_request` | `build-fast` | linux/amd64 | 3-5 min | Validation |
-| `push` with tag `v*` | `build-release` | linux/amd64,linux/arm64 | 8-10 min | Production |
+| `push` to main/master | `build-multiplatform` | linux/amd64,linux/arm64 | 8-12 min | Production |
+| `push` with tag `v*` | `build-multiplatform` | linux/amd64,linux/arm64 | 8-12 min | Release |
 
 ## Key Improvements
 
@@ -56,11 +57,11 @@ build-args: |
 
 ### 🎯 Conditional Builds
 ```yaml
-# Fast builds for everything except releases
-if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/')
+# Fast builds only for PRs
+if: github.event_name == 'pull_request'
 
-# Multi-platform only for releases
-if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+# Multi-platform for all main branch pushes and releases
+if: github.event_name == 'push'
 ```
 
 ### 🐳 Optimized Dockerfile
@@ -77,11 +78,11 @@ COPY --from=deps /app/node_modules ./node_modules
 
 ## Expected Results
 
-- **70% faster** regular development builds
-- **50% faster** PR validation
-- **Same quality** production releases
-- **Better resource** utilization
-- **Improved developer** experience
+- **Faster PR validation** with AMD64-only builds
+- **Full multi-platform support** for main branch and releases
+- **ARM64 compatibility** for Apple Silicon Macs and Raspberry Pi
+- **Better resource** utilization in CI/CD
+- **Improved developer** experience with platform-specific optimizations
 
 ## Next Steps
 
