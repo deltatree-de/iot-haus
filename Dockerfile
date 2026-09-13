@@ -60,6 +60,9 @@ ENV NODE_ENV=production \
     MQTT_BROKER_HOST=127.0.0.1 \
     MQTT_BROKER_PORT=1883
 
-USER node
+# Numerische Kennung statt Name: Kubernetes prueft runAsNonRoot nur an einer Zahl.
+# Mit "USER node" verweigert der Pod den Start (CreateContainerConfigError).
+# 1000 ist node im Basis-Image node:22-alpine.
+USER 1000:1000
 
 CMD ["/start.sh"]
