@@ -1,70 +1,65 @@
+# syntax=docker/dockerfile:1
 # Multi-stage Dockerfile for Smart Home Control System
-# Stage 1: Dependencies installation
-FROM node:18-alpine AS deps
+# Gehärtet nach dem Vorfall React2Shell (CVE-2025-55182):
+# - Node 22 statt Node 18 (Node 18 hat keine Sicherheitsupdates mehr)
+# - Laufzeit als Benutzer node, nicht als root
+# - kein npm, npx, corepack, yarn, apk, wget oder nc im Laufzeit-Image
+# - Anwendungscode gehört root und ist für node nur lesbar
 
+# Stage 1: alle Abhängigkeiten für den Build
+FROM node:22-alpine AS deps
 WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies with better caching
-RUN npm ci --no-audit --no-fund --frozen-lockfile
-
-# Stage 2: Build the Next.js application  
-FROM node:18-alpine AS builder
-
+# Stage 2: nur Laufzeit-Abhängigkeiten
+FROM node:22-alpine AS prod-deps
 WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-# Copy dependencies from deps stage
+# Stage 3: Next.js bauen
+FROM node:22-alpine AS builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
-COPY package*.json ./
-
-# Copy source code
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Stage 3: Runtime with MQTT Broker
-FROM node:18-alpine AS runtime
+# Stage 4: Laufzeit mit MQTT-Broker
+FROM node:22-alpine AS runtime
 
-# Install Mosquitto MQTT broker and supervisor in one layer
-RUN apk add --no-cache mosquitto mosquitto-clients supervisor
-
-# Create app directory
 WORKDIR /app
 
-# Copy package files and install only production dependencies
-COPY package*.json ./
-RUN npm ci --only=production --no-audit --no-fund --frozen-lockfile && \
-    npm cache clean --force
-
-# Copy built application from builder stage
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/server.js ./server.js
+COPY package.json server.js ./
 
-# Create mosquitto directories and configuration in one layer
-RUN mkdir -p /etc/mosquitto/conf.d /var/lib/mosquitto /var/log/mosquitto && \
-    chown -R mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto
-
-# Copy configuration files
 COPY docker/mosquitto.conf /etc/mosquitto/mosquitto.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY docker/start.sh /start.sh
+COPY --chmod=0755 docker/start.sh /start.sh
 
-# Set permissions
-RUN chmod +x /start.sh
+# Pakete installieren, dann Paketmanager und Download-Werkzeuge entfernen.
+# Nur Cache, Broker-Daten und Supervisor-Laufzeit sind für node beschreibbar.
+RUN apk add --no-cache mosquitto supervisor \
+ && mkdir -p /var/lib/mosquitto /var/log/supervisor /run/supervisor /app/.next/cache \
+ && chown -R node:node /var/lib/mosquitto /var/log/supervisor /run/supervisor /app/.next/cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-* \
+ && rm -f /usr/bin/wget /usr/bin/nc /usr/bin/ftpget /usr/bin/ftpput /usr/bin/tftp \
+ && rm -rf /sbin/apk /etc/apk /lib/apk /usr/share/apk /var/cache/apk
 
-# Expose HTTP port only
 EXPOSE 3000
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV HOSTNAME=0.0.0.0
-ENV NEXT_PUBLIC_MQTT_BROKER_URL=auto
-ENV MQTT_BROKER_HOST=127.0.0.1
-ENV MQTT_BROKER_PORT=1883
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
+    NEXT_PUBLIC_MQTT_BROKER_URL=auto \
+    MQTT_BROKER_HOST=127.0.0.1 \
+    MQTT_BROKER_PORT=1883
 
-# Start services using supervisor
+USER node
+
 CMD ["/start.sh"]
