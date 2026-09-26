@@ -1,4 +1,4 @@
-# Docker ignore file for Smart Home Control System
+# Docker-Ignore für IoT-Haus 2.0
 
 # Version Control
 .git
@@ -114,3 +114,16 @@ docker-compose*.yml
 *.md
 !docker/*.conf
 !docker/*.sh
+
+# Planung, Doku, Tests und Werkzeuge gehören nicht ins Image
+_bmad/
+_bmad-output/
+docs/
+tests/
+scripts/
+coverage/
+test-*.js
+**/*.test.ts
+**/*.test.tsx
+vitest.config.mts
+vitest.setup.ts

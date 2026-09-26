@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist } from "next/font/google";
+import { THEME_FARBE, THEME_SKRIPT } from "@/ui/themeSkript";
+import { tokenCss } from "@/ui/farbtokens";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,54 +9,35 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Smart Home Control - IoT Haus",
-  description: "Intelligente Haussteuerung mit MQTT und WebSocket-Technologie. Steuern Sie Ihre Beleuchtung in Echtzeit.",
-  keywords: "Smart Home, IoT, MQTT, WebSocket, Hausautomatisierung, Lichtsteuerung",
-  authors: [{ name: "DeltaTree" }],
-  viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
-  themeColor: "#3B82F6",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Smart Home Control",
+  title: "IoT-Haus – Energie & Steuerung",
+  description:
+    "Simuliertes Zuhause: Geräte schalten und live sehen, was das Haus gerade verbraucht und kostet.",
+  applicationName: "IoT-Haus",
+  appleWebApp: { title: "IoT-Haus", statusBarStyle: "default" },
+  icons: {
+    icon: [{ url: "/favicon.ico", sizes: "32x32" }, { url: "/icon.svg", type: "image/svg+xml" }],
+    apple: "/apple-touch-icon.png",
   },
-  formatDetection: {
-    telephone: false,
-  },
-  other: {
-    "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
-  },
+  formatDetection: { telephone: false },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+// Keine Zoom-Sperre (NFR-2); theme-color setzt das Inline-Skript passend zum Theme.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="de">
+    <html lang="de" data-theme="hell" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <meta name="theme-color" content="#3B82F6" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Smart Home Control" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content={THEME_FARBE.hell} />
+        <style dangerouslySetInnerHTML={{ __html: tokenCss() }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SKRIPT }} />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <body className={`${geistSans.variable} antialiased`}>{children}</body>
     </html>
   );
 }

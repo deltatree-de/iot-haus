@@ -228,3 +228,6 @@ storybook-static/
 
 # Documentation builds
 /docs/build/
+
+# Build-Protokoll der CI
+build.log

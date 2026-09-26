@@ -1,0 +1,52 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": { "started": "2026-09-26T09:00:00Z", "last_updated": "2026-09-26T10:30:00Z" },
+  "mode": "initial_scan",
+  "scan_level": "exhaustive",
+  "project_root": "/Users/deltatree/git/iot-haus",
+  "project_knowledge": "/Users/deltatree/git/iot-haus/docs",
+  "decisions": [
+    "Headless-Lauf: keine Rückfragen; Scan-Level exhaustive gewählt (Auftrag 'deep dive').",
+    "Kein index.md vorhanden → initial_scan.",
+    "Klassifikation: Monolith, ein Teil 'main', project_type_id 'web' (Next.js-Fullstack mit Custom Server).",
+    "Bestandsdoku im Root wird nicht verändert, nur inventarisiert und bewertet."
+  ],
+  "completed_steps": [
+    { "step": "step_1", "status": "completed", "timestamp": "2026-09-26T09:05:00Z", "summary": "Als Monolith mit 1 Teil (web) klassifiziert" },
+    { "step": "step_2", "status": "completed", "timestamp": "2026-09-26T09:10:00Z", "summary": "8 Bestandsdokumente gefunden (7 *.md im Root + copilot-instructions.md)" },
+    { "step": "step_3", "status": "completed", "timestamp": "2026-09-26T09:15:00Z", "summary": "Tech-Stack: Next.js 15.5.25 / React 19.1.9 / TS 5.9 / ws 8.21 / mqtt 5.15 / Mosquitto" },
+    { "step": "step_4", "status": "completed", "timestamp": "2026-09-26T09:45:00Z", "summary": "Alle Quelldateien gelesen (src/, server.js, docker/, workflows, test-*.js); ESLint (9 Fehler/7 Warnungen) und tsc (grün) ausgeführt; API- und Datenmodell-Doku geschrieben" },
+    { "step": "step_5", "status": "completed", "timestamp": "2026-09-26T09:50:00Z", "summary": "source-tree-analysis.md geschrieben" },
+    { "step": "step_6", "status": "completed", "timestamp": "2026-09-26T10:00:00Z", "summary": "development-guide.md, deployment-guide.md, contribution-guide.md geschrieben" },
+    { "step": "step_7", "status": "skipped", "timestamp": "2026-09-26T10:00:00Z", "summary": "Kein Multi-Part-Projekt, keine integration-architecture.md" },
+    { "step": "step_8", "status": "completed", "timestamp": "2026-09-26T10:10:00Z", "summary": "architecture.md geschrieben" },
+    { "step": "step_9", "status": "completed", "timestamp": "2026-09-26T10:15:00Z", "summary": "project-overview.md, component-inventory.md geschrieben" },
+    { "step": "step_10", "status": "completed", "timestamp": "2026-09-26T10:20:00Z", "summary": "index.md geschrieben, keine (To be generated)-Marker" },
+    { "step": "step_11", "status": "completed", "timestamp": "2026-09-26T10:25:00Z", "summary": "Checkliste geprüft, Links validiert" },
+    { "step": "step_12", "status": "completed", "timestamp": "2026-09-26T10:30:00Z", "summary": "Abschluss; zusätzlich Befundliste _bmad-output/planning-artifacts/01-analyse-befunde.md erstellt" }
+  ],
+  "current_step": "completed",
+  "project_types": [ { "part_id": "main", "project_type_id": "web", "display_name": "Web Application (Next.js)" } ],
+  "findings": {
+    "project_classification": "Monolith, 1 Teil, Next.js + Custom WS-MQTT-Proxy + Mosquitto in einem Container",
+    "technology_stack": "Next.js 15.5.25 auf TypeScript/Node 22",
+    "batches_completed": [
+      { "path": "src/app", "files_scanned": 5, "summary": "Seite, Layout, CSS, Health-Route" },
+      { "path": "src/components", "files_scanned": 3, "summary": "SVG-Haus, Raum, Bedienfeld" },
+      { "path": "src/hooks", "files_scanned": 3, "summary": "MQTT-Fassade, WS-Client, Mock" },
+      { "path": "src/types", "files_scanned": 1, "summary": "Domänentypen" },
+      { "path": "(root)", "files_scanned": 12, "summary": "server.js, Configs, Dockerfile, Compose, test-*.js" },
+      { "path": "docker", "files_scanned": 3, "summary": "mosquitto, supervisord, start.sh" },
+      { "path": ".github", "files_scanned": 3, "summary": "2 Workflows, Copilot-Instruktionen" }
+    ],
+    "apis": "1 HTTP-Endpunkt, 1 WebSocket-Endpunkt mit 3 Client- und 6 Server-Nachrichtentypen, 4 MQTT-Topics",
+    "data": "0 Tabellen; 5 TS-Interfaces; Persistenz localStorage",
+    "components": "2 App-Komponenten, 3 UI-Komponenten, 3 Hooks"
+  },
+  "outputs_generated": [
+    "project-scan-report.json", "project-overview.md", "architecture.md", "source-tree-analysis.md",
+    "component-inventory.md", "api-contracts.md", "data-models.md", "development-guide.md",
+    "deployment-guide.md", "contribution-guide.md", "index.md"
+  ],
+  "resume_instructions": "Workflow abgeschlossen. Für Detailanalysen deep_dive-Modus verwenden."
+}

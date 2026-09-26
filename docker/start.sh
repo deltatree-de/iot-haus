@@ -1,8 +1,8 @@
 #!/bin/sh
-# Start script for the Smart Home Control System container.
+# Startskript des IoT-Haus-Containers.
 # Läuft als node. Rechte setzt das Dockerfile beim Bauen, nicht beim Start.
 set -e
 
-echo "Starting Smart Home Control System (user: $(id -un))..."
+echo "IoT-Haus 2.0 startet (Benutzer: $(id -un)) ..."
 
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
