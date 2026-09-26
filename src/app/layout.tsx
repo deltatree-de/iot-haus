@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { THEME_FARBE, THEME_SKRIPT } from "@/ui/themeSkript";
 import { tokenCss } from "@/ui/farbtokens";
+import { T } from "@/ui/texte";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,9 +11,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "IoT-Haus – Energie & Steuerung",
-  description:
-    "Simuliertes Zuhause: Geräte schalten und live sehen, was das Haus gerade verbraucht und kostet.",
+  title: T.seite.titel,
+  description: T.seite.beschreibung,
   applicationName: "IoT-Haus",
   appleWebApp: { title: "IoT-Haus", statusBarStyle: "default" },
   icons: {

@@ -1,5 +1,5 @@
 // Eigene Inline-SVG-Symbole im Lucide-Stil (24 × 24, Kontur currentColor), immer dekorativ (aria-hidden).
-import type { SymbolName } from '@/domain/katalog';
+import type { SymbolName as GeraeteSymbol } from '@/domain/katalog';
 
 const PFADE = {
   lampe: 'M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z',
@@ -42,10 +42,10 @@ const PFADE = {
   birne: 'M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z',
 } as const;
 
-export type IconName = keyof typeof PFADE | 'laststufe-1' | 'laststufe-2' | 'laststufe-3';
+export type SymbolName = keyof typeof PFADE | 'laststufe-1' | 'laststufe-2' | 'laststufe-3';
 
-/** Gerätesymbol aus dem Katalog → Icon */
-export const GERAETE_ICON: Record<SymbolName, IconName> = {
+/** Gerätesymbol aus dem Katalog → Zeichnung (fünf Lampen teilen sich eine, K-11) */
+export const GERAETE_SYMBOL: Record<GeraeteSymbol, SymbolName> = {
   deckenlampe: 'lampe',
   stehlampe: 'stehlampe',
   nachttischlampe: 'lampe',
@@ -70,13 +70,13 @@ export const GERAETE_ICON: Record<SymbolName, IconName> = {
   router: 'router',
 };
 
-interface IconProps {
-  name: IconName;
+interface SymbolProps {
+  name: SymbolName;
   groesse?: number;
   className?: string;
 }
 
-export function Icon({ name, groesse = 24, className }: IconProps) {
+export function Symbol({ name, groesse = 24, className }: SymbolProps) {
   const gemeinsam = {
     width: groesse,
     height: groesse,

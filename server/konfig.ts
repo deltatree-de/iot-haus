@@ -23,6 +23,7 @@ export function leseStrompreis(wert: string | undefined, log: Logger): number {
 }
 
 export interface Konfig {
+  erlaubteHosts: string[];
   port: number;
   hostname: string;
   mqttUrl: string;
@@ -32,6 +33,10 @@ export interface Konfig {
 export function leseKonfig(env: NodeJS.ProcessEnv): Konfig {
   const port = Number.parseInt(env.PORT ?? '', 10);
   return {
+    erlaubteHosts: (env.ERLAUBTE_HOSTS ?? '')
+      .split(',')
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean),
     port: Number.isInteger(port) && port > 0 ? port : 3000,
     hostname: env.HOSTNAME || '0.0.0.0',
     mqttUrl: `mqtt://${env.MQTT_BROKER_HOST || '127.0.0.1'}:${env.MQTT_BROKER_PORT || '1883'}`,

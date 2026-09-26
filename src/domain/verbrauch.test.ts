@@ -21,14 +21,14 @@ function allesAn(): HausZustand {
 }
 
 describe('Verbrauch (FR-6, FR-7, FR-13)', () => {
-  it('Ausgangszustand: 75,3 W, davon 10,3 W Standby', () => {
+  it('Ausgangszustand: 75,3 W, davon 10,3 W Standby', () => {
     const z = ausgangszustand(0);
     expect(hausverbrauch(z)).toBeCloseTo(75.3, 9);
     expect(runden(hausverbrauch(z))).toBe(75);
     expect(standbyAnteil(z)).toBeCloseTo(10.3, 9);
   });
 
-  it('alles an: 12.978 W, kein Standby', () => {
+  it('alles an: 12.978 W, kein Standby', () => {
     const z = allesAn();
     expect(hausverbrauch(z)).toBe(12978);
     expect(standbyAnteil(z)).toBe(0);
@@ -41,7 +41,7 @@ describe('Verbrauch (FR-6, FR-7, FR-13)', () => {
     }
   });
 
-  it('Mikrowelle an: +1.198,5 W, angezeigt 1.274 W', () => {
+  it('Mikrowelle an: +1.198,5 W, angezeigt 1.274 W', () => {
     const z = wendeZieleAn(ausgangszustand(0), { 'kueche.mikrowelle': true }, 0).zustand;
     expect(runden(hausverbrauch(z))).toBe(1274);
     expect(runden(hausverbrauch(z)) - runden(hausverbrauch(ausgangszustand(0)))).toBe(1199);
@@ -64,7 +64,7 @@ describe('Verbrauch (FR-6, FR-7, FR-13)', () => {
     for (let i = 1; i < liste.length; i++) expect(liste[i - 1].watt).toBeGreaterThanOrEqual(liste[i].watt);
   });
 
-  it('Anteil 0 bei 0 W', () => {
+  it('Anteil 0 bei 0 W', () => {
     const z = ausgangszustand(0);
     const nichts = {} as HausZustand;
     for (const id of Object.keys(z) as GeraetId[]) nichts[id] = { an: false, seit: 0 };

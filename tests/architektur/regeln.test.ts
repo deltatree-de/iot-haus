@@ -67,6 +67,26 @@ describe('Architekturregeln', () => {
     expect(alles).not.toContain('localStorage.setItem(\'smart-home-state\'');
   });
 
+  it('Komponenten nach Architektur §5.1 / K-06 vorhanden', () => {
+    for (const k of [
+      'App', 'Sprunglink', 'VersionsBanner', 'VerbindungsBanner', 'Kopfbereich', 'Zaehler', 'DeltaChip', 'LaststufePille',
+      'VerbindungsStatus', 'Uebersicht', 'ThemeWahl', 'InfoHinweis', 'Szenenleiste', 'SzenenKnopf', 'Hausansicht',
+      'RaumFlaeche', 'VerbrauchNachRaum', 'Raumkarte', 'GeraeteZeile', 'Schalter', 'RaumAusKnopf', 'GrundlastDialog',
+      'Meldungen', 'LiveRegion', 'Skeleton', 'Symbol', 'Fusszeile',
+    ]) {
+      expect(fs.existsSync(path.join(WURZEL, 'src/components', `${k}.tsx`)), k).toBe(true);
+    }
+    for (const h of ['useHaus.tsx', 'useHochzaehlen.ts', 'useRestzeit.ts', 'useSekundentakt.ts', 'useTheme.ts', 'useReduzierteBewegung.ts']) {
+      expect(fs.existsSync(path.join(WURZEL, 'src/hooks', h)), h).toBe(true);
+    }
+  });
+
+  it('schmales geschütztes Leerzeichen vor Einheiten (K-13)', () => {
+    const format = fs.readFileSync(path.join(WURZEL, 'src/domain/format.ts'), 'utf8');
+    expect(format).toContain("EINHEIT = '\\u202F'");
+    expect(format).not.toMatch(/\} (W\b|kWh|€)/);
+  });
+
   it('kein console.log im Client (FR-35)', () => {
     for (const datei of QUELLEN.filter((d) => d.startsWith('src'))) {
       expect(fs.readFileSync(path.join(WURZEL, datei), 'utf8'), datei).not.toMatch(/console\.(log|info|debug|warn)\(/);
@@ -77,12 +97,14 @@ describe('Architekturregeln', () => {
     const layout = fs.readFileSync(path.join(WURZEL, 'src/app/layout.tsx'), 'utf8');
     expect(layout).not.toMatch(/user-scalable|maximum-scale|maximumScale|userScalable/);
     expect(layout).toContain('lang="de"');
-    expect(layout).toContain('IoT-Haus – Energie & Steuerung');
+    expect(layout).toContain('T.seite.titel');
+    expect(fs.readFileSync(path.join(WURZEL, 'src/ui/texte.ts'), 'utf8')).toContain("titel: 'IoT-Haus – Energie & Steuerung'");
   });
 
   it('Dockerfile: Healthcheck ohne curl, Härtung unverändert (FR-31, NFR-4)', () => {
     const docker = fs.readFileSync(path.join(WURZEL, 'Dockerfile'), 'utf8');
-    expect(docker).toMatch(/HEALTHCHECK[\s\S]*node", "-e", "fetch\('http:\/\/127\.0\.0\.1:3000\/api\/health'\)/);
+    expect(docker).toMatch(/HEALTHCHECK[\s\S]*node", "-e", "fetch\('http:\/\/127\.0\.0\.1:'\+\(process\.env\.PORT\|\|3000\)\+'\/api\/health'\)/);
+    expect(docker).toContain('COPY package.json next.config.mjs ./');
     expect(docker).toContain('USER 1000:1000');
     expect(docker).toContain('FROM node:22-alpine AS runtime');
     for (const compose of ['docker-compose.yml', 'docker-compose.prod.yml']) {

@@ -47,14 +47,30 @@ describe('Zustandsdienst', () => {
     expect(dienst.aktuelleEnergie().wh).toBe(1234);
   });
 
+  it('begrenzt Zeitpunkte aus der Zukunft auf jetzt (Review CR-11)', () => {
+    const { dienst } = baue({ geraete: { 'kueche.wasserkocher': { an: true, seit: START + 3_600_000 } }, energie: null });
+    expect(dienst.aktuellerZustand()['kueche.wasserkocher'].seit).toBe(START);
+    vi.advanceTimersByTime(180_000);
+    expect(dienst.aktuellerZustand()['kueche.wasserkocher'].an).toBe(false);
+  });
+
+  it('zählt Uhrsprünge nicht als Verbrauch (Review CR-12)', () => {
+    const { dienst } = baue();
+    vi.setSystemTime(START + 5 * 3_600_000); // Uhr springt 5 h vor, ohne dass Timer liefen
+    dienst.fuehreAus({ typ: 'schalten', id: 'a', geraet: 'bad.foehn', an: true });
+    // höchstens 2 min mit 75,3 W
+    expect(dienst.aktuelleEnergie().wh).toBeCloseTo((75.3 * 2) / 60, 6);
+  });
+
   it('verwirft Energie eines anderen Tages', () => {
     const { dienst } = baue({ geraete: {}, energie: { datum: '2026-09-25', wh: 999 } });
     expect(dienst.aktuelleEnergie()).toEqual({ datum: '2026-09-26', wh: 0 });
   });
 
   it('verteilt genau eine Änderung je Befehl und speichert geänderte Geräte', () => {
-    const { dienst, nachrichten, geraete } = baue();
+    const { dienst, nachrichten, geraete, energien } = baue();
     geraete.clear();
+    const energieVorher = energien.length;
     expect(dienst.fuehreAus({ typ: 'szene', id: 'b1', szene: 'morgenroutine' })).toBe(true);
     expect(nachrichten).toHaveLength(1);
     const n = nachrichten[0];
@@ -64,6 +80,7 @@ describe('Zustandsdienst', () => {
       expect(Object.keys(n.geraete)).toHaveLength(6);
     }
     expect(geraete.size).toBe(6);
+    expect(energien.length).toBe(energieVorher); // Energie nur im Takt (Review CR-01)
     expect(dienst.fuehreAus({ typ: 'szene', id: 'b2', szene: 'morgenroutine' })).toBe(false);
     expect(nachrichten).toHaveLength(1);
   });

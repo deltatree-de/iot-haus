@@ -3,8 +3,8 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Duplex } from 'node:stream';
 import type { Logger } from './log';
 import { MqttSpeicher } from './mqtt-speicher';
-import { ursprungErlaubt } from './ursprung';
-import { WsVerbindungen } from './ws-verbindungen';
+import { hostErlaubt, ursprungErlaubt } from './ursprung';
+import { MAX_VERBINDUNGEN, WsVerbindungen } from './ws-verbindungen';
 import { Zustandsdienst } from './zustandsdienst';
 
 export const WS_PFAD = '/mqtt';
@@ -16,6 +16,8 @@ export interface ServerOptionen {
   strompreis: number;
   version: string;
   log: Logger;
+  /** Optionale Host-Allowlist gegen DNS-Rebinding (ERLAUBTE_HOSTS); leer = jeder Host */
+  erlaubteHosts?: string[];
   /** Next-Request-Handler; fehlt er (Tests), antwortet der Server mit 404. */
   requestHandler?: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
   /** Nur im Dev-Modus: andere Upgrades (HMR) an Next weiterreichen. */
@@ -117,13 +119,18 @@ export async function erstelleServer(opts: ServerOptionen): Promise<LaufenderSer
       else socket.destroy();
       return;
     }
+    if (!hostErlaubt(req.headers, opts.erlaubteHosts ?? [])) {
+      log.warn('ws_abgelehnt', { grund: 'host' });
+      lehneAb(socket, 403, 'Forbidden');
+      return;
+    }
     if (!ursprungErlaubt(req.headers)) {
       log.warn('ws_abgelehnt', { grund: 'origin' });
       lehneAb(socket, 403, 'Forbidden');
       return;
     }
-    if (!bereit) {
-      log.warn('ws_abgelehnt', { grund: 'nicht_bereit' });
+    if (!bereit || verbindungen.anzahl() >= MAX_VERBINDUNGEN) {
+      log.warn('ws_abgelehnt', { grund: bereit ? 'zu_viele_verbindungen' : 'nicht_bereit' });
       lehneAb(socket, 503, 'Service Unavailable');
       return;
     }

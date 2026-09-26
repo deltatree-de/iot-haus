@@ -1,24 +1,27 @@
-# iot-haus – Leitfaden für Beiträge
-
-**Stand:** 2026-09-26 · Abgeleitet aus `README.md` (Abschnitt Contributing), `.github/copilot-instructions.md` und der Git-Historie.
+# IoT-Haus 2.0 – Beiträge
 
 ## Ablauf
 
-1. Branch von `main` anlegen (`feature/...`, `fix/...`, `security/...` wie in PR #2).
-2. Änderungen committen — beobachtete Konvention: Conventional Commits mit deutscher Beschreibung,
-   z. B. `fix(docker): numerische Benutzerkennung für runAsNonRoot`.
-3. Pull Request gegen `main`; CI baut das Image (amd64) ohne Push.
-4. Merge auf `main` veröffentlicht `:latest` (= Produktion).
+1. Branch von `main` anlegen: `feature/…`, `fix/…`, `security/…`, `docs/…`.
+2. Commits als Conventional Commits mit deutscher Beschreibung, z. B. `feat(server): Auto-Aus nach Neustart fortsetzen`.
+3. Lokal prüfen: `npm run lint && npm run typecheck && npm test && npm run build`.
+4. Pull Request gegen `main`. Die Jobs `qualitaet` und `container` müssen grün sein; bei PRs wird nichts veröffentlicht.
+5. Merge auf `main` veröffentlicht `:latest` und `:sha-<kurz>` (= Produktion).
+6. Für ein Release: `version` in `package.json` hochsetzen und `.github/release-hinweise/v<version>.md` anlegen
+   ([GITHUB-ACTIONS.md](../GITHUB-ACTIONS.md#ein-release-erstellen)).
 
 ## Regeln
 
-- TypeScript strict, kein `any`; Funktionskomponenten mit Hooks; Tailwind mobile-first.
-- MQTT-Payload-Format einhalten (`src/types/index.ts`, [api-contracts.md](./api-contracts.md)).
-- UI-Sprache Deutsch.
-- Sicherheitshärtung im Dockerfile (Node 22, `USER 1000:1000`, keine Paketmanager/Download-Tools im Runtime-Image) nicht zurückdrehen.
-- Vor dem PR: `npm run lint`, `npx tsc --noEmit`, `npm run build`, Container lokal starten (`npm run compose:up`).
+- UI, Doku und Fachbezeichner auf Deutsch (Bezeichner ohne Umlaute).
+- Geräte, Räume und Szenen nur in `src/domain/katalog.ts` bzw. `szenen.ts` ändern; nirgends sonst Geräte-IDs als Literal.
+- `src/domain/` bleibt frei von React-, Next- und Node-Importen.
+- Jede Zustandsänderung läuft über den Zustandsdienst; Browser senden nur die drei Befehle aus [API.md](../API.md).
+- Protokolländerungen immer gemeinsam in `src/domain/protokoll.ts`, `API.md` und den Integrationstests.
+- Kein `console.log`; Serverlogs nur über `server/log.ts`, ohne Nutzdaten.
+- Neue Farben als Token in `src/ui/farbtokens.ts` mit Kontrastpaar; axe muss hell und dunkel 0 Verstöße melden.
+- Image-Härtung (Node 22, `USER 1000:1000`, keine Paketmanager und Download-Werkzeuge, Healthcheck ohne curl) nicht zurückdrehen.
+- Sichtbare Änderungen an der Oberfläche: betroffene Punkte der [Abnahme-Checkliste](./abnahme-2.0.md) erneut prüfen.
 
-## Fehlend (Ist)
+Ausführliche Regeln: [.github/copilot-instructions.md](../.github/copilot-instructions.md).
 
-Kein `CONTRIBUTING.md`, keine PR-/Issue-Templates, keine `LICENSE`-Datei (README verweist auf MIT und `LICENSE`), keine
-automatisierten Tests als Merge-Voraussetzung, kein Branch-Schutz im Repo dokumentiert.
+Das Repository enthält keine Lizenzdatei und keine PR-/Issue-Vorlagen.

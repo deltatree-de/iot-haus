@@ -31,14 +31,14 @@ export function uebernimmGespeichert(ziel: Gespeichert, topic: string, payload: 
   const treffer = GERAET_TOPIC.exec(topic);
   if (treffer) {
     const id = treffer[1];
-    if (!istGeraetId(id) || typeof daten.an !== 'boolean' || typeof daten.seit !== 'number' || !Number.isFinite(daten.seit)) {
+    if (!istGeraetId(id) || typeof daten.an !== 'boolean' || typeof daten.seit !== 'number' || !Number.isFinite(daten.seit) || daten.seit < 0) {
       return false;
     }
     ziel.geraete[id] = { an: daten.an, seit: daten.seit };
     return true;
   }
   if (topic === ENERGIE_TOPIC) {
-    if (typeof daten.datum !== 'string' || !DATUM.test(daten.datum) || typeof daten.wh !== 'number' || !(daten.wh >= 0)) {
+    if (typeof daten.datum !== 'string' || !DATUM.test(daten.datum) || typeof daten.wh !== 'number' || !Number.isFinite(daten.wh) || daten.wh < 0) {
       return false;
     }
     ziel.energie = { datum: daten.datum, wh: daten.wh };

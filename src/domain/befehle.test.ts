@@ -99,7 +99,7 @@ describe('Szenen (FR-22 bis FR-24)', () => {
     expect(istSzeneId('party')).toBe(false);
   });
 
-  it('Alles aus aus „alles an“: nur Grundlast bleibt, 75 W', () => {
+  it('Alles aus aus „alles an“: nur Grundlast bleibt, 75 W', () => {
     const z = wendeAn(allesAn(), { typ: 'szene', id: 'a', szene: 'alles-aus' }, 1).zustand;
     expect(eingeschaltet(z)).toEqual(['kueche.kuehlschrank', 'hwr.gefrierschrank', 'arbeitszimmer.router']);
     expect(runden(hausverbrauch(z))).toBe(75);
@@ -115,7 +115,7 @@ describe('Szenen (FR-22 bis FR-24)', () => {
     ]);
   });
 
-  it('Morgenroutine aus Ausgangszustand: +5.532 W', () => {
+  it('Morgenroutine aus Ausgangszustand: +5.532 W', () => {
     const z0 = ausgangszustand(0);
     const { zustand, geaendert } = wendeAn(z0, { typ: 'szene', id: 'a', szene: 'morgenroutine' }, 1);
     expect(geaendert).toHaveLength(6);
@@ -123,7 +123,7 @@ describe('Szenen (FR-22 bis FR-24)', () => {
     expect(runden(hausverbrauch(zustand)) - runden(hausverbrauch(z0))).toBe(5532);
   });
 
-  it('Filmabend aus Ausgangszustand: +124 W, aus „alles an“ Decken aus', () => {
+  it('Filmabend aus Ausgangszustand: +124 W, aus „alles an“ Decken aus', () => {
     const z0 = ausgangszustand(0);
     const z1 = wendeAn(z0, { typ: 'szene', id: 'a', szene: 'filmabend' }, 1).zustand;
     expect(runden(hausverbrauch(z1)) - runden(hausverbrauch(z0))).toBe(124);

@@ -1,38 +1,87 @@
-# iot-haus – Komponenteninventar
+# IoT-Haus 2.0 – Komponenteninventar
 
-**Stand:** 2026-09-26 · Kein Designsystem, keine Komponentenbibliothek; Tailwind-Utilities + Emojis + Inline-SVG.
+Eine Seite (`src/app/page.tsx` rendert `<App />`). Eine Komponente je Datei, benannt nach Architektur §5.1.
+Reihenfolge auf der Seite: Sprunglink → Kopfbereich → Übersicht → Szenenleiste → Hausansicht / Räume / Verbrauch nach Raum → Fußzeile.
+Ab 1024 px zweispaltig (links Haus und Verbrauch, rechts Räume).
 
-## 1. Seiten und Layout
+## Komponentenbaum
 
-| Komponente | Datei | Typ | Verantwortung | Anmerkungen |
-|---|---|---|---|---|
-| `RootLayout` | `src/app/layout.tsx` | Server Component | `<html lang="de">`, Fonts (Geist), Metadaten, PWA-Meta | `viewport`/`themeColor` in `metadata` (in Next 15 veraltet), zusätzlich manuelle `<meta>`-Duplikate (`:44-51`); `user-scalable=no`; `/apple-touch-icon.png` existiert nicht |
-| `Home` | `src/app/page.tsx` | Client Component (Container) | Hauszustand, localStorage, MQTT-Anbindung, Initial-Sync, Seitenlayout, Footer "System-Information" | 303 Zeilen, zahlreiche `console.log`; Hydration-Risiken (`:39-51`, `:265`) |
+```
+App ─ Fehlergrenze ─ HausProvider ─ Seite
+ ├ Sprunglink
+ ├ Kopfbereich ─ Zaehler, DeltaChip, LaststufePille, VerbindungsStatus
+ ├ Erstfehler / Skeleton (Ladezustand)
+ ├ Uebersicht ─ InfoHinweis, ThemeWahl
+ ├ Szenenleiste ─ SzenenKnopf ×4
+ ├ Hausansicht ─ RaumFlaeche ×6
+ ├ VerbrauchNachRaum
+ ├ Raeume ─ Raumkarte ×6 ─ GeraeteZeile ─ Schalter
+ │                      └ RaumAusKnopf
+ │        └ GrundlastDialog
+ ├ Fusszeile
+ ├ Meldungen
+ ├ VersionsBanner | VerbindungsBanner (über BannerRahmen, höchstens eines)
+ └ LiveRegion
+```
 
-## 2. Präsentationskomponenten
+## Komponenten (`src/components/`)
 
-| Komponente | Datei | Kategorie | Props | Interaktion | Anmerkungen |
-|---|---|---|---|---|---|
-| `HouseVisualization` | `src/components/HouseVisualization.tsx` | Display / Visualisierung | `house`, `onLightToggle` | delegiert an `RoomComponent` | 497 Zeilen statisches SVG (viewBox 500×500); eigene Überschrift "Smart Home Control" dupliziert Seitentitel; Legende grün/grau passt nicht zu Amber-Licht; `min-h-screen` im Grid |
-| `RoomComponent` | `src/components/RoomComponent.tsx` | Display + Eingabe (SVG) | `room`, `onLightToggle` | `onClick` auf transparenter Hitbox | Hitbox liegt unter Fenster/Lampe/Label → Klicks dort ohne Wirkung; nicht per Tastatur bedienbar (kein `role`, `tabIndex`, `aria-*`); definiert `<filter id="roomShadow">`/`lightGlow` pro Raum erneut (doppelte IDs); schaltet auch bei getrennter Verbindung |
-| `ControlPanel` | `src/components/ControlPanel.tsx` | Formular/Steuerung | `rooms`, `onLightToggle`, `connectionStatus` | Toggle-Buttons, deaktiviert wenn nicht `connected` | Buttons ohne `aria-pressed`/`aria-label` (nur Emoji-Inhalt); `getStatusIcon` ungenutzt; Etagen-Badge "1F/2F" (englisch) |
+| Komponente | Aufgabe |
+|---|---|
+| `App` | Seitenaufbau, `Fehlergrenze` + `HausProvider`, Lade- und Erstfehlerzustand, Bannerwahl |
+| `Fehlergrenze` | fängt unerwartete Renderfehler ab und zeigt einen verständlichen Hinweis statt einer leeren Seite |
+| `Sprunglink` | erstes fokussierbares Element, springt zur Überschrift „Räume“ |
+| `Kopfbereich` | sticky: Hausverbrauch, Laststufe, Kosten pro Stunde, Verbindungsstatus |
+| `Zaehler` | Hausverbrauch als animierte Zahl; der Screenreader-Text trägt immer den Zielwert |
+| `DeltaChip` | kurzer Hinweis „+1.199 W“ neben dem Hausverbrauch (1,2 s, dekorativ) |
+| `LaststufePille` | Laststufe mit Text, Balkensymbol und Farbe (nie nur Farbe) |
+| `VerbindungsStatus` | Verbindungsstatus mit Symbol und Text, ohne eigene Ansage |
+| `Uebersicht` | Standby-Anteil, Tagesverbrauch in kWh/€, Strompreis, Darstellung |
+| `InfoHinweis` | Disclosure „Hinweis zu den Werten“, Escape schließt |
+| `ThemeWahl` | System/Hell/Dunkel als native Radios im Segment-Look |
+| `Szenenleiste` / `SzenenKnopf` | vier Szenen mit Name und Untertitel; beschäftigt/gesperrt, keine „aktiv“-Markierung, keine optimistische Anzeige |
+| `Hausansicht` / `RaumFlaeche` | 2 Etagen × 3 Räume als Schaltflächen mit Verbrauch und Anzahl an, leuchten bei Licht; Sprung zur Raumkarte |
+| `VerbrauchNachRaum` | alle Räume absteigend mit Balken und Prozent |
+| `Raeume` | Abschnitt „Räume“ mit allen Raumkarten und dem Grundlast-Dialog inkl. Fokus-Rückgabe |
+| `Raumkarte` | Geräteliste eines Raums und „Raum ausschalten“ |
+| `GeraeteZeile` | ganze Zeile ist der `role="switch"`: Name, Leistung/Standby, Grundlast- und Auto-Aus-Kennzeichen, Restzeit, ausstehender Zustand |
+| `Schalter` | rein visueller Schalter innerhalb der `GeraeteZeile` |
+| `RaumAusKnopf` | „Raum ausschalten“ für alle Nicht-Grundlastgeräte; gesperrt, wenn nichts auszuschalten ist |
+| `GrundlastDialog` | natives `<dialog>`: Rückfrage vor dem Ausschalten eines Grundlastgeräts, Fokus auf „Abbrechen“, Escape schließt |
+| `Meldungen` | Toasts (max. 3, je 4 s, pausieren bei Hover/Fokus, Escape schließt die neueste), z. B. „+1.199 W · Mikrowelle (Küche)“ |
+| `BannerRahmen` | gemeinsame Optik der Banner unten, `role="status"`, höchstens eines sichtbar (`bannerArt`) |
+| `VersionsBanner` | „Neue Version verfügbar“ mit „Neu laden“ (hat Vorrang), Schalter gesperrt |
+| `VerbindungsBanner` | „Verbindung getrennt“ mit Countdown und „Jetzt neu verbinden“ |
+| `LiveRegion` | `aria-live="polite"`: sammelt Änderungen 2 s und sagt die letzte an; Fehler, Hinweise und „Verbindung wiederhergestellt.“ sofort |
+| `Skeleton` | Platzhalter im Ladezustand (pulsiert nur ohne reduzierte Bewegung), dazu `Erstfehler` |
+| `Fusszeile` | Schätzungshinweis und Client-Version |
+| `Symbol` | eigene Inline-SVG-Symbole (24 × 24, `currentColor`), immer `aria-hidden` |
 
-## 3. Hooks (State/Integration)
+## Hooks (`src/hooks/`)
 
-| Hook | Datei | Rolle | Anmerkungen |
-|---|---|---|---|
-| `useMqtt` | `src/hooks/useMqtt.ts` | Fassade Mock vs. WebSocket | `shouldUseMock = false` fest; ruft trotzdem beide Hooks auf; `publishMessage` wird jeden Render neu erzeugt |
-| `useWebSocketMqtt` | `src/hooks/useWebSocketMqtt.ts` | WS-Verbindung, Abos, Publish, Reconnect | Reconnect nur einmal; Cleanup löst neuen Reconnect aus; auskommentierte Duplikatfilterung; `sentMessagesRef` ungenutzt |
-| `useMockMqtt` | `src/hooks/useMockMqtt.ts` | lokaler Fake-Broker | läuft immer mit und setzt nach 1 s Status `connected` |
+| Hook | Aufgabe |
+|---|---|
+| `useHaus` / `HausProvider` | Client-Zustand (Reducer), Verbindung, Befehle `schalten`/`szene`/`raumAus`, Bestätigungsfrist 5 s |
+| `useRestzeit` | Auto-Aus-Restzeit aus Server-`seit` und Uhrversatz, damit alle Clients dieselbe Zeit zeigen |
+| `useSekundentakt` | gemeinsamer Sekundentakt, nur aktiv solange eine Restzeit läuft |
+| `useHochzaehlen` | animiertes Hochzählen (600 ms), sofortiger Sprung bei reduzierter Bewegung |
+| `useImpuls` | startet eine kurze CSS-Impulsanimation neu, ohne den Fokus zu verlieren |
+| `useTheme` | Theme-Wahl lesen/speichern (`localStorage` `iot-haus.theme`) |
+| `useReduzierteBewegung` | `prefers-reduced-motion`, live beobachtet |
 
-## 4. Styles und Assets
+## Client-Module ohne React (`src/client/`)
 
-- `src/app/globals.css`: Theme-Variablen (Dark-Mode-Variablen gesetzt, aber UI nutzt fest helle Verläufe), Blob-Animation,
-  Touch-Targets 44 px, `prefers-reduced-motion`/`prefers-contrast`-Regeln, Scrollbar-Styling.
-- `public/apple-touch-icon.svg`, `public/window.svg` (ungenutzt), `src/app/favicon.ico`.
+- `hausReducer.ts` – `ClientZustand` (Serverdaten, Verbindung, ausstehende Befehle, Meldungen, Versionskonflikt) als reine Funktion.
+- `verbindung.ts` – `HausVerbindung`: WebSocket zu `/mqtt`, Backoff 1/2/4/8/10 s, Snapshot-Frist 5 s, Lebenszeichen 75 s,
+  Neuverbindung bei `visibilitychange`.
 
-## 5. Wiederverwendbarkeit
+## Texte und Gestaltung (`src/ui/`, `src/app/globals.css`)
 
-Es gibt keine generischen Bausteine (Button, Card, Toggle, Badge). Wiederkehrende Muster (Glas-Karten
-`bg-white/70 backdrop-blur-sm rounded-2xl`, Verlaufsüberschriften, Status-Pillen) sind mehrfach als Klassenketten kopiert.
-Für die geplante Geräte-/Energie-Erweiterung empfiehlt sich eine kleine UI-Basis (Toggle, Card, Stat/Kennzahl, Toast).
+- `texte.ts`: Microcopy-Katalog, **alle** UI-Texte an einer Stelle. Geräte-, Raum- und Szenennamen kommen aus dem Katalog,
+  Zahlen aus `src/domain/format.ts`. Typografie: U+202F (schmales geschütztes Leerzeichen) zwischen Zahl und Einheit,
+  „…“ = U+2026, Minus = U+2212.
+- `farbtokens.ts`: Paletten `HELL` und `DUNKEL` als CSS-Variablen plus `KONTRAST_PAARE` (vom Kontrasttest geprüft).
+- `themeSkript.ts`: Inline-Skript vor dem ersten Paint (kein Aufblitzen), entfernt den Altschlüssel `smart-home-state`.
+- Tailwind 4 mit Tokens, sichtbarer Fokusrahmen, Trefferflächen ≥ 44 px, bei `prefers-reduced-motion` keine Animationen.
+
+Tests: `src/components/App.test.tsx` (jsdom, Testing Library, axe in Hell und Dunkel).

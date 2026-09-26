@@ -1,68 +1,52 @@
-# iot-haus – API-Verträge
+# IoT-Haus 2.0 – API-Verträge (Kurzfassung)
 
-**Stand:** 2026-09-26 · Quelle: `server.js`, `src/hooks/useWebSocketMqtt.ts`, `src/app/api/health/route.ts`, `src/types/index.ts`
+Die vollständige Beschreibung mit Beispielen steht in [API.md](../API.md). Verbindlich im Code: `src/domain/protokoll.ts`.
 
-## 1. HTTP
+## HTTP
 
-### `GET /api/health`
-- Datei: `src/app/api/health/route.ts:3-10`
-- Antwort `200 application/json`:
-```json
-{ "status": "healthy", "timestamp": "2026-09-26T10:00:00.000Z", "service": "iot-haus", "version": "1.0.0" }
-```
-- Hinweise: prüft weder Broker- noch Proxy-Zustand. `version` stammt aus `npm_package_version`, das beim Start via
-  `node server.js` (supervisord) nicht gesetzt ist → immer Fallback `"1.0.0"` (package.json: `0.1.0`).
+| Pfad | Antwort |
+|---|---|
+| `GET`/`HEAD /api/health` | `200 {"status":"ok","mqtt":"verbunden","version":"2.0.0"}` oder `503 {"status":"fehler","mqtt":…,"version":…}` mit `mqtt` = `verbunden` (Start) oder `getrennt` (Broker weg) |
+| alles andere | Next.js |
 
-Alle übrigen HTTP-Pfade bedient Next.js (Seite `/`, Assets `/_next/*`, `public/*`).
+## WebSocket `/mqtt`
 
-## 2. WebSocket `/mqtt` (Eigenprotokoll)
+Prüfreihenfolge beim Upgrade: Pfad `/mqtt` → Host-Allowlist `ERLAUBTE_HOSTS`, falls gesetzt (`Host` und vorhandener `X-Forwarded-Host`
+müssen darin stehen, sonst 403) → Origin (fehlt oder Host = `Host`/`X-Forwarded-Host`, sonst 403) → Server bereit und < 100 Verbindungen
+(sonst 503).
 
-- Endpunkt: `ws(s)://<host>:<port>/mqtt`, gleicher Port wie HTTP (`server.js:22-25`).
-- Keine Authentifizierung, keine Origin-Prüfung, keine Subprotokolle. Alle Frames sind JSON-Text.
+Limits je Verbindung: 4 KB fachlich (`ZU_GROSS`), 64 KiB hart (Close 1009), Token-Bucket 100 Befehle Vorrat + 20/s
+(`ZU_VIELE_BEFEHLE`), Sendepuffer > 1 MB → Verbindung wird beendet.
 
-### 2.1 Client → Server
+**Client → Server** (genau diese Felder, `id` = `^[A-Za-z0-9_-]{1,64}$`):
 
-| `type` | Felder | Verhalten (`server.js`) |
+| `typ` | Felder |
+|---|---|
+| `schalten` | `id`, `geraet`, `an` |
+| `szene` | `id`, `szene` (`alles-aus`, `filmabend`, `morgenroutine`, `gute-nacht`) |
+| `raumAus` | `id`, `raum` (`wohnzimmer`, `kueche`, `hwr`, `schlafzimmer`, `bad`, `arbeitszimmer`) |
+
+**Server → Client**
+
+| `typ` | Empfänger | Inhalt |
 |---|---|---|
-| `subscribe` | `topic: string` (Wildcards `+`/`#` erlaubt) | Topic wird im Client-Set vermerkt; wenn Broker bereit: `mqttClient.subscribe(topic)` → `subscribed`; sonst `error` (Abo bleibt vermerkt, wird aber nie beim Broker nachgeholt) (`:89-120`) |
-| `unsubscribe` | `topic` | entfernt aus Client-Set; Broker-Unsubscribe nur, wenn kein anderer Client das Topic hält → `unsubscribed` (`:122-135`) |
-| `publish` | `topic`, `payload: string` | wenn Broker bereit: `mqttClient.publish(topic, payload)` (QoS 0, retain=false) → `published`; sonst `error` (`:137-166`) |
-| sonst | – | `error` "Unknown message type" |
+| `snapshot` | neuer Client | `version`, `zustand` (alle 28 Geräte), `energie`, `strompreis`, `serverZeit` |
+| `aenderung` | alle | `ursache {art, ref, befehlId}`, `geraete` (nur geänderte), `energie` |
+| `bestaetigt` | Absender | `befehlId`, `geaendert` |
+| `fehler` | Absender | `befehlId`, `code`, `meldung` |
+| `energie` | alle, ≤ 60 s und um Mitternacht | `energie`, `serverZeit` |
 
-Beispiel:
-```json
-{"type":"publish","topic":"smarthome/room_1_left/light","payload":"{\"roomId\":\"room_1_left\",\"isOn\":true,\"timestamp\":1790000000000,\"clientId\":\"client_ab12cd34e_1790000000000\"}"}
-```
+Fehlercodes: `ZU_GROSS` (> 4.096 Byte), `UNGUELTIGES_JSON`, `ALTES_PROTOKOLL` (Feld `type`), `UNGUELTIGER_BEFEHL`,
+`UNBEKANNTES_GERAET`, `UNBEKANNTE_SZENE`, `UNBEKANNTER_RAUM`, `ZU_VIELE_BEFEHLE` (Befehlsrate überschritten).
 
-### 2.2 Server → Client
+Close-Codes: `1013` Broker weg / nicht bereit, `1012` Server fährt herunter, `1009` Nachricht > 64 KiB.
 
-| `type` | Felder | Auslöser |
-|---|---|---|
-| `connected` | `message` | direkt nach WS-Verbindungsaufbau (`:197-200`) |
-| `subscribed` | `topic` | erfolgreiches Broker-Abo |
-| `unsubscribed` | `topic` | nach `unsubscribe` |
-| `published` | `topic` | erfolgreicher Publish |
-| `message` | `topic`, `payload: string`, `timestamp: number` | jede MQTT-Nachricht, deren Topic auf ein Abo des Clients passt — auch eigene (`:58-77`) |
-| `error` | `message`, `error?`, `receivedType?` | Broker nicht bereit, Subscribe/Publish-Fehler, ungültiges JSON, unbekannter Typ |
+## MQTT (intern, retained, QoS 1)
 
-Topic-Matching: `topicMatch()` (`server.js:211-224`) unterstützt `+` und `#`.
+| Topic | Payload |
+|---|---|
+| `iot-haus/v2/geraet/<geraet-id>/zustand` | `{"v":1,"an":…,"seit":…}` |
+| `iot-haus/v2/energie/heute` | `{"v":1,"datum":"YYYY-MM-DD","wh":…,"stand":…}` |
 
-## 3. MQTT-Topics und Payload
-
-| Topic | Richtung | Payload (`LightState`, JSON-String) | QoS / Retain |
-|---|---|---|---|
-| `smarthome/room_1_left/light` (Wohnzimmer, EG) | pub+sub | `{roomId, isOn, timestamp, clientId?}` | 0 / nein |
-| `smarthome/room_1_right/light` (Küche, EG) | pub+sub | dto. | 0 / nein |
-| `smarthome/room_2_left/light` (Schlafzimmer, OG) | pub+sub | dto. | 0 / nein |
-| `smarthome/room_2_right/light` (Badezimmer, OG) | pub+sub | dto. | 0 / nein |
-
-- `timestamp`: ms seit Epoch (Client-Uhr), wird beim Empfang **nicht** ausgewertet (keine Last-Write-Wins-Logik).
-- `clientId`: wird gesendet, aber nirgends ausgewertet.
-- Ein Client, der sich neu verbindet, erhält **keinen** aktuellen Zustand (keine retained Messages).
-
-## 4. Bekannte Vertragsschwächen
-
-- Keine Schema-Validierung von `topic`/`payload`, keine Größenbegrenzung (ws-Default `maxPayload` 100 MiB).
-- Publish/Subscribe auf beliebige Topics inkl. `#` möglich (Informationsabfluss, Fremdsteuerung).
-- Fehlerantworten tragen keine Korrelation zur Anfrage (keine Request-ID).
-- Bestandsdoku `API.md` (Root) beschreibt dasselbe Protokoll, ist aber nicht mit dem Code synchronisiert gepflegt.
+Geräte-Topics werden bei jeder Änderung geschrieben, das Energie-Topic im 60-s-Takt, bei SIGTERM sowie beim Start und nach einer
+Wiederverbindung zum Broker.

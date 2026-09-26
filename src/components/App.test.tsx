@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { hausReducer } from '@/client/hausReducer';
 import { snapshot, SERVER_ZEIT, verbundenerZustand } from '../../tests/fixtures/snapshot';
 import { App } from './App';
-import { GeraetSchalter } from './GeraetSchalter';
+import { GeraeteZeile } from './GeraeteZeile';
 import { geraetById } from '@/domain/katalog';
 
 afterEach(() => {
@@ -42,13 +42,13 @@ describe('Seite mit Snapshot (NFR-2, FR-25)', () => {
   it('Kopfbereich zeigt Hausverbrauch, Laststufe, Kosten, Status', () => {
     render(<App startZustand={verbundenerZustand()} />);
     const kopf = screen.getByRole('banner');
-    // Grundlast 65 + Stehlampe 10 + Wasserkocher 2.200 + Standby 10,3 = 2.285,3 W
+    // Grundlast 65 + Stehlampe 10 + Wasserkocher 2.200 + Standby 10,3 = 2.285,3 W
     expect(within(kopf).getByText('Hausverbrauch 2.285 Watt')).toBeTruthy();
     expect(kopf.textContent).toContain('hoch');
-    expect(kopf.textContent).toContain('0,80 €/h');
+    expect(kopf.textContent).toContain('0,80 €/h');
     expect(kopf.textContent).toContain('Verbunden');
-    expect(screen.getByText(/davon Standby 10,3 W/)).toBeTruthy();
-    expect(screen.getByText(/Heute 3,42 kWh/).textContent).toContain('1,20 €');
+    expect(screen.getByText('davon Standby 10,3 W')).toBeTruthy();
+    expect(screen.getByText(/Heute 3,42 kWh/).textContent).toContain('1,20 €');
     expect(screen.getByText('Strompreis 0,35 €/kWh')).toBeTruthy();
   });
 
@@ -66,8 +66,8 @@ describe('Seite mit Snapshot (NFR-2, FR-25)', () => {
 
   it('Hausansicht: Räume sind Schaltflächen mit Verbrauch (FR-26)', () => {
     render(<App startZustand={verbundenerZustand()} />);
-    expect(screen.getByRole('button', { name: 'Wohnzimmer, 13 W, 1 Gerät an – zur Raumkarte' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Badezimmer, 0 W, 0 Geräte an – zur Raumkarte' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Wohnzimmer, 13 W, 1 Gerät an – zur Raumkarte' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Badezimmer, 0 W, 0 Geräte an – zur Raumkarte' })).toBeTruthy();
   });
 
   it('„Raum ausschalten“ ist gesperrt, wenn nur Grundlast an ist', () => {
@@ -157,7 +157,7 @@ describe('Meldungen (FR-11)', () => {
     });
     render(<App startZustand={z} />);
     const liste = screen.getByRole('region', { name: 'Meldungen' });
-    expect(liste.textContent).toContain('+1.199 W · Mikrowelle (Küche)');
+    expect(liste.textContent).toContain('+1.199 W · Mikrowelle (Küche)');
     await act(async () => {
       fireEvent.click(within(liste).getByRole('button', { name: 'Meldung schließen' }));
     });
@@ -165,11 +165,11 @@ describe('Meldungen (FR-11)', () => {
   });
 });
 
-describe('GeraetSchalter einzeln', () => {
+describe('GeraeteZeile einzeln (K-07)', () => {
   it('zeigt „wird geschaltet …“ und aria-busy', () => {
     render(
       <ul>
-        <GeraetSchalter
+        <GeraeteZeile
           geraet={geraetById('bad.foehn')}
           an
           seit={0}
@@ -184,6 +184,28 @@ describe('GeraetSchalter einzeln', () => {
     const s = screen.getByRole('switch', { name: 'Föhn, Badezimmer' });
     expect(s.getAttribute('aria-busy')).toBe('true');
     expect(s.textContent).toContain('wird geschaltet …');
+  });
+
+  it('Beschreibung nennt die laufende Auto-Aus-Restzeit (Review CR-13)', () => {
+    const jetzt = Date.now();
+    render(
+      <ul>
+        <GeraeteZeile
+          geraet={geraetById('kueche.wasserkocher')}
+          an
+          seit={jetzt - 12_000}
+          uhrVersatzMs={0}
+          beschaeftigt={false}
+          gesperrt={false}
+          impulsNr={null}
+          onAktivieren={() => {}}
+        />
+      </ul>,
+    );
+    const s = screen.getByRole('switch', { name: 'Wasserkocher, Küche' });
+    const beschreibung = document.getElementById(s.getAttribute('aria-describedby')!)!.textContent;
+    expect(beschreibung).toMatch(/^2\.200 Watt, schaltet nach 3 Minuten automatisch aus, noch 2 Minuten 4[89] Sekunden$/);
+    expect(s.textContent).toMatch(/noch 2:4[89]/);
   });
 
   it('Snapshot-Fixture enthält alle Geräte', () => {

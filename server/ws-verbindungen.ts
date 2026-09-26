@@ -8,6 +8,12 @@ import type { Logger } from './log';
 import type { Zustandsdienst } from './zustandsdienst';
 
 const HERZSCHLAG_MS = 30_000;
+/** Token-Bucket je Verbindung: 100 Befehle am Stück, danach 20 pro Sekunde (Review CR-01). */
+export const BEFEHLE_VORRAT = 100;
+export const BEFEHLE_PRO_SEKUNDE = 20;
+/** Liest ein Client nicht mehr mit, wird er getrennt, bevor der Server-Speicher wächst. */
+export const MAX_PUFFER_BYTES = 1_000_000;
+export const MAX_VERBINDUNGEN = 100;
 
 const MELDUNGEN: Record<FehlerCode, string> = {
   UNGUELTIGES_JSON: 'Nachricht ist kein gültiges JSON.',
@@ -17,9 +23,10 @@ const MELDUNGEN: Record<FehlerCode, string> = {
   UNBEKANNTE_SZENE: 'Unbekannte Szene.',
   UNBEKANNTER_RAUM: 'Unbekannter Raum.',
   ALTES_PROTOKOLL: 'Veraltetes Protokoll. Bitte die Seite neu laden.',
+  ZU_VIELE_BEFEHLE: 'Zu viele Befehle. Bitte kurz warten.',
 };
 
-type Lebendig = WebSocket & { lebendig?: boolean };
+type Lebendig = WebSocket & { lebendig?: boolean; vorrat?: number; stand?: number };
 
 export class WsVerbindungen {
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 65_536 });
@@ -54,9 +61,7 @@ export class WsVerbindungen {
 
   verteile(nachricht: ServerNachricht): void {
     const text = JSON.stringify(nachricht);
-    for (const client of this.wss.clients) {
-      if (client.readyState === WebSocket.OPEN) client.send(text);
-    }
+    for (const client of this.wss.clients) this.sendeText(client, text);
   }
 
   /** Schließt alle Verbindungen, z. B. bei Broker-Ausfall (1013) oder Herunterfahren (1012). */
@@ -72,6 +77,8 @@ export class WsVerbindungen {
 
   private verbunden(ws: Lebendig): void {
     ws.lebendig = true;
+    ws.vorrat = BEFEHLE_VORRAT;
+    ws.stand = Date.now();
     ws.on('pong', () => {
       ws.lebendig = true;
     });
@@ -89,7 +96,20 @@ export class WsVerbindungen {
     else ws.close(1013, 'nicht bereit');
   }
 
-  private nachricht(ws: WebSocket, daten: RawData, istBinaer: boolean): void {
+  /** Token-Bucket: true, wenn der Befehl verarbeitet werden darf. */
+  private darf(ws: Lebendig): boolean {
+    const jetzt = Date.now();
+    const vorrat = Math.min(BEFEHLE_VORRAT, (ws.vorrat ?? BEFEHLE_VORRAT) + ((jetzt - (ws.stand ?? jetzt)) / 1000) * BEFEHLE_PRO_SEKUNDE);
+    ws.stand = jetzt;
+    if (vorrat < 1) {
+      ws.vorrat = vorrat;
+      return false;
+    }
+    ws.vorrat = vorrat - 1;
+    return true;
+  }
+
+  private nachricht(ws: Lebendig, daten: RawData, istBinaer: boolean): void {
     const puffer = Array.isArray(daten) ? Buffer.concat(daten) : Buffer.from(daten as ArrayBuffer);
     if (puffer.byteLength > MAX_NACHRICHT_BYTES) return this.fehler(ws, 'ZU_GROSS', null);
     if (istBinaer) return this.fehler(ws, 'UNGUELTIGES_JSON', null);
@@ -103,6 +123,7 @@ export class WsVerbindungen {
 
     const ergebnis = pruefeBefehl(json);
     if (!ergebnis.ok) return this.fehler(ws, ergebnis.code, ergebnis.befehlId);
+    if (!this.darf(ws)) return this.fehler(ws, 'ZU_VIELE_BEFEHLE', ergebnis.befehl.id);
 
     const dienst = this.dienst();
     if (!dienst) {
@@ -120,6 +141,16 @@ export class WsVerbindungen {
   }
 
   private sende(ws: WebSocket, nachricht: ServerNachricht): void {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(nachricht));
+    this.sendeText(ws, JSON.stringify(nachricht));
+  }
+
+  private sendeText(ws: WebSocket, text: string): void {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    if (ws.bufferedAmount > MAX_PUFFER_BYTES) {
+      this.log.warn('ws_getrennt', { grund: 'liest_nicht' });
+      ws.terminate();
+      return;
+    }
+    ws.send(text);
   }
 }

@@ -23,6 +23,7 @@ async function main(): Promise<void> {
     strompreis,
     version,
     log,
+    erlaubteHosts: konfig.erlaubteHosts,
     requestHandler: (req, res) => handle(req, res, parse(req.url ?? '/', true)),
     upgradeHandler: upgrade ? (req, socket, head) => void upgrade(req, socket, head) : undefined,
   });

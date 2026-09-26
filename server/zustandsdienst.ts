@@ -7,6 +7,11 @@ import { hausverbrauch } from '../src/domain/verbrauch';
 import type { Logger } from './log';
 
 export const ENERGIE_TAKT_MS = 60_000;
+/**
+ * Längste Zeitspanne, die auf einmal integriert wird. Der Takt integriert spätestens alle 60 s;
+ * größere Sprünge (Uhr vorgestellt, Prozess eingefroren) zählen nicht als Verbrauch (Review CR-12).
+ */
+export const MAX_INTEGRATION_MS = 2 * ENERGIE_TAKT_MS;
 
 export interface Persistenz {
   speichereGeraet(id: GeraetId, zustand: HausZustand[GeraetId]): void;
@@ -36,7 +41,11 @@ export class Zustandsdienst {
 
   constructor(private readonly opts: ZustandsdienstOptionen) {
     const jetzt = opts.jetzt();
-    this.zustand = { ...ausgangszustand(jetzt), ...opts.gespeichert.geraete };
+    this.zustand = ausgangszustand(jetzt);
+    for (const [id, g] of Object.entries(opts.gespeichert.geraete) as [GeraetId, HausZustand[GeraetId]][]) {
+      // Zeitpunkte aus der Zukunft (Uhr zurückgestellt) auf jetzt begrenzen (Review CR-11)
+      this.zustand[id] = { an: g.an, seit: Math.min(g.seit, jetzt) };
+    }
     const heute = berlinDatum(jetzt);
     this.energie =
       opts.gespeichert.energie && opts.gespeichert.energie.datum === heute
@@ -98,13 +107,14 @@ export class Zustandsdienst {
       }
     }
     this.opts.verteile({ typ: 'aenderung', ursache, geraete, energie: this.energie });
+    // Geräte sofort sichern (FR-17); Energie nur im 60-s-Takt und beim Stopp (FR-10, Review CR-01)
     for (const id of geaendert) this.opts.persistenz.speichereGeraet(id, zustand[id]);
-    void this.opts.persistenz.speichereEnergie(this.energie, this.energieStand);
     return true;
   }
 
   private integriereBis(jetzt: number): void {
-    this.energie = integriere(this.energie, hausverbrauch(this.zustand), this.energieStand, jetzt);
+    const von = Math.max(this.energieStand, jetzt - MAX_INTEGRATION_MS);
+    this.energie = integriere(this.energie, hausverbrauch(this.zustand), von, jetzt);
     this.energieStand = Math.max(this.energieStand, jetzt);
   }
 

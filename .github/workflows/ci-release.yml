@@ -99,16 +99,7 @@ jobs:
         run: docker run -d --name ci -p 3000:3000 -v ci-daten:/var/lib/mosquitto iot-haus:ci
 
       - name: Warten auf healthy (≤ 60 s)
-        run: |
-          warte_healthy() {
-            for i in $(seq 1 60); do
-              s=$(docker inspect -f '{{.State.Health.Status}}' ci)
-              if [ "$s" = "healthy" ]; then echo "healthy nach ${i} s"; return 0; fi
-              sleep 1
-            done
-            docker logs ci; return 1
-          }
-          warte_healthy
+        run: scripts/warte-healthy.sh ci 60
 
       - name: Rauchtest schalten
         run: node scripts/smoke-container.mjs schalten
@@ -116,11 +107,7 @@ jobs:
       - name: Neustart und Persistenz prüfen
         run: |
           docker restart ci
-          for i in $(seq 1 60); do
-            s=$(docker inspect -f '{{.State.Health.Status}}' ci)
-            if [ "$s" = "healthy" ]; then echo "healthy nach Neustart (${i} s)"; break; fi
-            sleep 1
-          done
+          scripts/warte-healthy.sh ci 60
           node scripts/smoke-container.mjs pruefen
 
       - name: Container-Log
@@ -205,14 +192,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release erzeugen, falls die Version neu ist
+        # Jeder Teilschritt ist einzeln idempotent: ein abgebrochener Lauf wird beim nächsten Push
+        # bzw. Re-Run vervollständigt, statt still grün zu enden (Review CR-02).
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DIGEST: ${{ needs.image.outputs.digest }}
         run: |
           set -euo pipefail
           V=$(node -p "require('./package.json').version")
-          if [ -n "$(git ls-remote --tags origin "refs/tags/v$V")" ]; then
-            echo "Version v$V existiert bereits – kein neues Release." | tee -a "$GITHUB_STEP_SUMMARY"
+          if gh release view "v$V" >/dev/null 2>&1; then
+            echo "Release v$V existiert bereits – nichts zu tun." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           HINWEISE=".github/release-hinweise/v$V.md"
@@ -220,9 +209,16 @@ jobs:
             echo "Release-Hinweise $HINWEISE fehlen." >&2
             exit 1
           fi
-          docker buildx imagetools create -t "$REGISTRY/$IMAGE_NAME:$V" "$REGISTRY/$IMAGE_NAME@$DIGEST"
-          git tag "v$V" "$GITHUB_SHA"
-          git push origin "v$V"
+          # 1. Versions-Image (fehlt es, aus dem eben gebauten Digest erzeugen)
+          if ! docker buildx imagetools inspect "$REGISTRY/$IMAGE_NAME:$V" >/dev/null 2>&1; then
+            docker buildx imagetools create -t "$REGISTRY/$IMAGE_NAME:$V" "$REGISTRY/$IMAGE_NAME@$DIGEST"
+          fi
+          # 2. Git-Tag (fehlt er, auf diesen Commit setzen)
+          if [ -z "$(git ls-remote --tags origin "refs/tags/v$V")" ]; then
+            git tag "v$V" "$GITHUB_SHA"
+            git push origin "v$V"
+          fi
+          # 3. GitHub Release
           gh release create "v$V" --title "IoT-Haus v$V" --notes-file "$HINWEISE" --generate-notes --verify-tag
           {
             echo "## Release v$V"

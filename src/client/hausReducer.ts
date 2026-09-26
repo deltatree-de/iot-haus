@@ -1,9 +1,10 @@
 // Client-Zustand als reine Funktion (Architektur §3.8, UX-Zustandsautomat). Kein React.
-import { geraetById, raumById, type GeraetId, type RaumId } from '../domain/katalog';
+import { geraetById, istGeraetId, istRaumId, raumById, type GeraetId, type RaumId } from '../domain/katalog';
 import type { Energie, HausZustand, ServerNachricht, Ursache } from '../domain/protokoll';
-import { szeneById, type SzeneId } from '../domain/szenen';
+import { istSzeneId, szeneById } from '../domain/szenen';
+import { T } from '../ui/texte';
 import { hausverbrauch, runden } from '../domain/verbrauch';
-import { wattDifferenz, wattGesprochen } from '../domain/format';
+import { EINHEIT, wattDifferenz, wattGesprochen } from '../domain/format';
 
 export type Verbindung = 'verbinde' | 'verbunden' | 'getrennt';
 
@@ -90,14 +91,16 @@ export function istBedienbar(z: ClientZustand): boolean {
   return z.verbindung === 'verbunden' && z.server !== null && !z.versionKonflikt;
 }
 
+/** Anzeigename; unbekannte Kennungen (z. B. neuerer Server) fallen auf die Kennung zurück (Review CR-06). */
 function name(art: Ausstehend['art'] | Ursache['art'], ref: string): string {
-  if (art === 'szene') return szeneById(ref as SzeneId).name;
-  if (art === 'raumAus') return raumById(ref as RaumId).name;
-  return geraetById(ref as GeraetId).name;
+  if (art === 'szene') return istSzeneId(ref) ? szeneById(ref).name : ref;
+  if (art === 'raumAus') return istRaumId(ref) ? raumById(ref).name : ref;
+  return istGeraetId(ref) ? geraetById(ref).name : ref;
 }
 
-function geraetMitRaum(id: GeraetId): string {
-  const g = geraetById(id);
+function geraetMitRaum(ref: string): string {
+  if (!istGeraetId(ref)) return ref;
+  const g = geraetById(ref);
   return `${g.name} (${raumById(g.raum).name})`;
 }
 
@@ -110,11 +113,7 @@ function mitMeldung(z: ClientZustand, m: Omit<Meldung, 'id'>): ClientZustand {
 function fehlerMeldung(z: ClientZustand, a: Ausstehend): ClientZustand {
   const n = name(a.art, a.ref);
   const text =
-    a.art === 'geraet'
-      ? `${n} konnte nicht geschaltet werden. Bitte erneut versuchen.`
-      : a.art === 'szene'
-        ? `${n} konnte nicht ausgeführt werden. Bitte erneut versuchen.`
-        : `${n} konnte nicht ausgeschaltet werden. Bitte erneut versuchen.`;
+    a.art === 'geraet' ? T.toast.fehlerGeraet(n) : a.art === 'szene' ? T.toast.fehlerSzene(n) : T.toast.fehlerRaum(n);
   return mitMeldung(z, { art: 'fehler', delta: null, text, ansage: text, sammeln: false, sichtbar: true });
 }
 
@@ -127,30 +126,32 @@ export function beschreibeAenderung(
   const altW = runden(hausverbrauch(alt));
   const neuW = runden(hausverbrauch(neu));
   const differenzW = neuW - altW;
-  const delta = differenzW === 0 ? '±0 W' : wattDifferenz(differenzW);
-  const haus = `Hausverbrauch ${wattGesprochen(neuW)}.`;
+  const delta = differenzW === 0 ? `±0${EINHEIT}W` : wattDifferenz(differenzW);
+  const haus = T.ansage.haus(wattGesprochen(neuW));
   switch (ursache.art) {
     case 'geraet': {
-      const id = ursache.ref as GeraetId;
-      const an = neu[id].an;
-      return { differenzW, delta, text: geraetMitRaum(id), ansage: `${geraetById(id).name} ${an ? 'an' : 'aus'}. ${haus}` };
-    }
-    case 'autoAus': {
-      const id = ursache.ref as GeraetId;
+      const an = istGeraetId(ursache.ref) && neu[ursache.ref].an;
       return {
         differenzW,
         delta,
-        text: `${geraetMitRaum(id)} automatisch ausgeschaltet`,
-        ansage: `${geraetById(id).name} automatisch ausgeschaltet. ${haus}`,
+        text: geraetMitRaum(ursache.ref),
+        ansage: T.ansage.geraet(name('geraet', ursache.ref), an, haus),
       };
     }
+    case 'autoAus':
+      return {
+        differenzW,
+        delta,
+        text: T.toast.autoaus(geraetMitRaum(ursache.ref)),
+        ansage: T.ansage.autoaus(name('autoAus', ursache.ref), haus),
+      };
     case 'szene': {
       const n = name('szene', ursache.ref);
-      return { differenzW, delta, text: `${n} aktiviert`, ansage: `${n} aktiviert. ${haus}` };
+      return { differenzW, delta, text: T.toast.szene(n), ansage: T.ansage.szene(n, haus) };
     }
     case 'raumAus': {
       const n = name('raumAus', ursache.ref);
-      return { differenzW, delta, text: `${n} ausgeschaltet`, ansage: `${n} ausgeschaltet. ${haus}` };
+      return { differenzW, delta, text: T.toast.raum(n), ansage: T.ansage.raum(n, haus) };
     }
   }
 }
@@ -172,20 +173,24 @@ function verarbeite(z: ClientZustand, n: ServerNachricht, jetzt: number, clientV
         letzteAenderung: null,
       };
       return wiederverbunden
-        ? mitMeldung(neu, { art: 'info', delta: null, text: '', ansage: 'Verbindung wiederhergestellt.', sammeln: false, sichtbar: false })
+        ? mitMeldung(neu, { art: 'info', delta: null, text: '', ansage: T.ansage.wiederVerbunden, sammeln: false, sichtbar: false })
         : neu;
     }
     case 'aenderung': {
-      if (!z.server) return z;
+      // Bei abweichender Serverversion nur noch Snapshot anzeigen, bis neu geladen wird (Review CR-06)
+      if (!z.server || z.versionKonflikt) return z;
       const alt = z.server.zustand;
       const zustand = { ...alt };
       const geraete: GeraetId[] = [];
       for (const [id, g] of Object.entries(n.geraete) as [GeraetId, HausZustand[GeraetId] | undefined][]) {
-        if (!g || !(id in alt)) continue;
+        if (!g || !istGeraetId(id)) continue;
         zustand[id] = g;
         geraete.push(id);
       }
       if (geraete.length === 0) return { ...z, server: { ...z.server, energie: n.energie } };
+      if (!['geraet', 'szene', 'raumAus', 'autoAus'].includes(n.ursache?.art)) {
+        return { ...z, server: { ...z.server, zustand, energie: n.energie } };
+      }
       const b = beschreibeAenderung(alt, zustand, n.ursache);
       const raeume = [...new Set(geraete.map((id) => geraetById(id).raum))];
       const naechste: ClientZustand = {
@@ -209,7 +214,7 @@ function verarbeite(z: ClientZustand, n: ServerNachricht, jetzt: number, clientV
       void _erledigt;
       const neu = { ...z, ausstehend: rest };
       if (!n.geaendert && a.art !== 'geraet') {
-        const text = `${name(a.art, a.ref)}: keine Änderung nötig`;
+        const text = T.toast.keineAenderung(name(a.art, a.ref));
         return mitMeldung(neu, { art: 'info', delta: null, text, ansage: text, sammeln: false, sichtbar: true });
       }
       return neu;
@@ -219,7 +224,7 @@ function verarbeite(z: ClientZustand, n: ServerNachricht, jetzt: number, clientV
       return zeitueberschritten(z, n.befehlId);
     }
     case 'energie': {
-      if (!z.server) return z;
+      if (!z.server || z.versionKonflikt) return z;
       return { ...z, uhrVersatzMs: n.serverZeit - jetzt, server: { ...z.server, energie: n.energie } };
     }
   }

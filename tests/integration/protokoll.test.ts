@@ -109,7 +109,7 @@ describe('Verteilung (FR-16, FR-19, FR-22)', () => {
     expect(dauer[94]).toBeLessThanOrEqual(250);
   });
 
-  it('200 zufällige Befehle von 3 Clients → 100 % konsistent (SM-1)', async () => {
+  it('200 zufällige Befehle von 3 Clients → 100 % konsistent (SM-1)', async () => {
     const cs = [await client(), await client(), await client()];
     const beobachter = await client();
     let zufall = 42;
@@ -153,6 +153,19 @@ describe('Befehlsprüfung (FR-18)', () => {
     expect(c.nachrichten.some((n) => n.typ === 'aenderung')).toBe(false);
     expect(c.zustand()).toEqual(vorher);
     expect(c.ws.readyState).toBe(c.ws.OPEN);
+  });
+
+  it('Ratenlimit: über 100 Befehle am Stück → ZU_VIELE_BEFEHLE, Server bleibt stabil (Review CR-01)', async () => {
+    const c = await client();
+    for (let i = 0; i < 130; i++) c.sende({ typ: 'schalten', id: `r${i}`, geraet: 'bad.foehn', an: i % 2 === 0 });
+    await warteBis(() => c.nachrichten.filter((n) => n.typ === 'bestaetigt' || n.typ === 'fehler').length >= 130, 5000);
+    const fehler = c.nachrichten.filter((n) => n.typ === 'fehler');
+    expect(fehler.length).toBeGreaterThanOrEqual(25);
+    expect(fehler.every((n) => n.typ === 'fehler' && n.code === 'ZU_VIELE_BEFEHLE' && n.befehlId?.startsWith('r'))).toBe(true);
+    // nach kurzer Pause geht es weiter
+    await new Promise((r) => setTimeout(r, 200));
+    c.sende({ typ: 'schalten', id: 'danach', geraet: 'bad.foehn', an: false });
+    await c.warte((n) => n.typ === 'bestaetigt' && n.befehlId === 'danach');
   });
 
   it('Fehler nennt die Befehlskennung', async () => {

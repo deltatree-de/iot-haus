@@ -25,3 +25,23 @@ export function ursprungErlaubt(headers: IncomingHttpHeaders): boolean {
 function ohneStandardPort(host: string): string {
   return host.replace(/:(80|443)$/, '');
 }
+
+/** Host ohne Port, klein geschrieben. IPv6-Literale in eckigen Klammern bleiben erhalten. */
+export function hostname(host: string): string {
+  const h = host.trim().toLowerCase();
+  if (h.startsWith('[')) return h.slice(0, h.indexOf(']') + 1);
+  return h.split(':')[0];
+}
+
+/**
+ * Optionale Allowlist (ERLAUBTE_HOSTS) gegen DNS-Rebinding: Ist sie gesetzt, muss der Host-Header
+ * (bzw. X-Forwarded-Host hinter einem Reverse-Proxy) darin stehen (Review CR-10).
+ */
+export function hostErlaubt(headers: IncomingHttpHeaders, erlaubt: string[]): boolean {
+  if (erlaubt.length === 0) return true;
+  const kandidaten = [ersterWert(headers['x-forwarded-host']), ersterWert(headers.host)].filter(
+    (h): h is string => h !== undefined,
+  );
+  if (kandidaten.length === 0) return false;
+  return kandidaten.every((h) => erlaubt.includes(hostname(h)));
+}

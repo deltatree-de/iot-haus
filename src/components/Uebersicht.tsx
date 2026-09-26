@@ -1,108 +1,86 @@
 'use client';
 
 // Übersichtsbereich: Standby-Anteil, Tageswerte mit Info-Hinweis, Strompreis, Darstellung (FR-9, FR-10, FR-13, FR-28).
-import { useId, useState } from 'react';
-import { euro, kwh, strompreis as strompreisText, wattEineStelle } from '@/domain/format';
+import { euro, kwh, strompreis as strompreisText, wattEineStelle, zahl } from '@/domain/format';
 import { standbyAnteil } from '@/domain/verbrauch';
 import { useHaus } from '@/hooks/useHaus';
-import { useTheme } from '@/hooks/useTheme';
-import type { ThemeWahl } from '@/ui/themeSkript';
-import { Icon, type IconName } from './Icon';
+import { T } from '@/ui/texte';
+import { InfoKnopf, InfoText, useInfoHinweis } from './InfoHinweis';
+import { Skeleton } from './Skeleton';
+import { ThemeWahl } from './ThemeWahl';
 
-const OPTIONEN: { wert: ThemeWahl; text: string; icon: IconName }[] = [
-  { wert: 'system', text: 'System', icon: 'monitor-system' },
-  { wert: 'hell', text: 'Hell', icon: 'sonne' },
-  { wert: 'dunkel', text: 'Dunkel', icon: 'mond' },
-];
-
-function ThemeWahlFeld() {
-  const [wahl, setWahl] = useTheme();
-  const name = useId();
+function Wert({ sichtbar, gesprochen }: { sichtbar: string; gesprochen: string }) {
   return (
-    <fieldset className="flex flex-wrap items-center gap-2">
-      <legend className="sr-only">Darstellung</legend>
-      <span aria-hidden="true" className="text-sm text-ink-secondary">
-        Darstellung
-      </span>
-      <div className="flex rounded-[10px] bg-surface-sunken p-1">
-        {OPTIONEN.map((o) => (
-          <label
-            key={o.wert}
-            className={`relative flex min-h-11 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm transition-colors duration-[var(--m-schnell)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus ${
-              wahl === o.wert ? 'border-border bg-surface text-ink' : 'border-transparent text-ink-secondary'
-            }`}
-          >
-            <input
-              type="radio"
-              name={name}
-              value={o.wert}
-              checked={wahl === o.wert}
-              onChange={() => setWahl(o.wert)}
-              className="sr-only"
-            />
-            <Icon name={o.icon} groesse={16} />
-            {o.text}
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <>
+      <span aria-hidden="true">{sichtbar}</span>
+      <span className="sr-only">{gesprochen}</span>
+    </>
   );
 }
 
 export function Uebersicht() {
   const { zustand } = useHaus();
-  const [infoOffen, setInfoOffen] = useState(false);
-  const infoId = useId();
+  const info = useInfoHinweis();
   const server = zustand.server;
-
-  const wert = (inhalt: React.ReactNode, breite: string) =>
-    server ? inhalt : <span className={`skeleton inline-block h-3.5 align-middle ${breite}`} aria-hidden="true" />;
+  const standby = server ? standbyAnteil(server.zustand) : 0;
+  const kosten = server ? (server.energie.wh / 1000) * server.strompreis : 0;
 
   return (
     <section aria-labelledby="uebersicht-titel" className="text-sm text-ink-secondary">
       <h2 id="uebersicht-titel" className="sr-only">
-        Übersicht
+        {T.uebersicht.titel}
       </h2>
       <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         <div className="flex flex-col gap-1 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-2">
           <p className="zahlen">
-            davon Standby {wert(server && wattEineStelle(standbyAnteil(server.zustand)), 'w-12')}
+            {server ? (
+              <Wert
+                sichtbar={`${T.uebersicht.standby} ${wattEineStelle(standby)}`}
+                gesprochen={T.uebersicht.standbySr(zahl(standby, 1))}
+              />
+            ) : (
+              <>
+                {T.uebersicht.standby} <Skeleton className="h-3.5 w-12 align-middle" />
+              </>
+            )}
           </p>
           <span aria-hidden="true" className="hidden lg:inline">
             ·
           </span>
           <div className="flex items-center gap-1">
             <p className="zahlen">
-              Heute {wert(server && kwh(server.energie.wh), 'w-16')} ·{' '}
-              {wert(server && euro((server.energie.wh / 1000) * server.strompreis), 'w-12')}
+              {server ? (
+                <Wert
+                  sichtbar={`${T.uebersicht.heute} ${kwh(server.energie.wh)} · ${euro(kosten)}`}
+                  gesprochen={T.uebersicht.heuteSr(zahl(server.energie.wh / 1000, 2), zahl(kosten, 2))}
+                />
+              ) : (
+                <>
+                  {T.uebersicht.heute} <Skeleton className="h-3.5 w-24 align-middle" />
+                </>
+              )}
             </p>
-            <button
-              type="button"
-              aria-expanded={infoOffen}
-              aria-controls={infoId}
-              onClick={() => setInfoOffen((o) => !o)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape' && infoOffen) {
-                  e.stopPropagation();
-                  setInfoOffen(false);
-                }
-              }}
-              className="-my-3 inline-flex size-11 items-center justify-center rounded-full text-ink-secondary hover:text-ink"
-            >
-              <Icon name="info" groesse={20} />
-              <span className="sr-only">Hinweis zu den Werten</span>
-            </button>
+            <InfoKnopf offen={info.offen} steuert={info.id} onUmschalten={info.setOffen} />
           </div>
           <span aria-hidden="true" className="hidden lg:inline">
             ·
           </span>
-          <p className="zahlen">Strompreis {wert(server && strompreisText(server.strompreis), 'w-20')}</p>
+          <p className="zahlen">
+            {server ? (
+              <Wert
+                sichtbar={`${T.uebersicht.strompreis} ${strompreisText(server.strompreis)}`}
+                gesprochen={T.uebersicht.strompreisSr(zahl(server.strompreis, 2))}
+              />
+            ) : (
+              <>
+                {T.uebersicht.strompreis} <Skeleton className="h-3.5 w-20 align-middle" />
+              </>
+            )}
+          </p>
         </div>
-        <ThemeWahlFeld />
+        <ThemeWahl />
       </div>
-      <p id={infoId} hidden={!infoOffen} className="mt-2 rounded-[10px] bg-surface p-3 text-ink ebene-1">
-        Schätzung auf Basis typischer Geräteleistungen, gezählt seit 00:00 Uhr.
-      </p>
+      <InfoText id={info.id} offen={info.offen} />
     </section>
   );
 }

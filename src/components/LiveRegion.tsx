@@ -7,7 +7,7 @@ import { useHaus } from '@/hooks/useHaus';
 
 export const SAMMEL_FENSTER_MS = 2000;
 
-export function Ansager() {
+export function LiveRegion() {
   const { zustand } = useHaus();
   const [text, setText] = useState('');
   const ausstehend = useRef<string | null>(null);

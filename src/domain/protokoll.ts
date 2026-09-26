@@ -39,7 +39,8 @@ export type FehlerCode =
   | 'UNBEKANNTES_GERAET'
   | 'UNBEKANNTE_SZENE'
   | 'UNBEKANNTER_RAUM'
-  | 'ALTES_PROTOKOLL';
+  | 'ALTES_PROTOKOLL'
+  | 'ZU_VIELE_BEFEHLE';
 
 export type ServerNachricht =
   | {

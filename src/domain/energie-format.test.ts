@@ -5,11 +5,11 @@ import * as f from './format';
 const STUNDE = 3_600_000;
 
 describe('Tagesenergie (FR-10)', () => {
-  it('2.000 W über 30 min = 1,00 kWh', () => {
+  it('2.000 W über 30 min = 1,00 kWh', () => {
     const start = Date.parse('2026-09-26T08:00:00Z');
     const e = integriere({ datum: '2026-09-26', wh: 0 }, 2000, start, start + STUNDE / 2);
     expect(e.wh).toBeCloseTo(1000, 6);
-    expect(f.kwh(e.wh)).toBe('1,00 kWh');
+    expect(f.kwh(e.wh)).toBe('1,00 kWh');
   });
 
   it('addiert am selben Tag', () => {
@@ -63,20 +63,20 @@ describe('Tagesenergie (FR-10)', () => {
 
 describe('Formatierung de-DE (FR-29)', () => {
   it('formatiert Leistung, Kosten, Energie', () => {
-    expect(f.watt(1200)).toBe('1.200 W');
-    expect(f.watt(75.3)).toBe('75 W');
-    expect(f.watt(0.5)).toBe('1 W');
+    expect(f.watt(1200)).toBe('1.200 W');
+    expect(f.watt(75.3)).toBe('75 W');
+    expect(f.watt(0.5)).toBe('1 W');
     expect(f.wattGesprochen(1274)).toBe('1.274 Watt');
-    expect(f.wattEineStelle(0.5)).toBe('0,5 W');
-    expect(f.wattEineStelle(10.3)).toBe('10,3 W');
-    expect(f.wattDifferenz(1199)).toBe('+1.199 W');
-    expect(f.wattDifferenz(-2200)).toBe('−2.200 W');
-    expect(f.euroProStunde(1.96)).toBe('1,96 €/h');
-    expect(f.euroProStunde(0.026355)).toBe('0,03 €/h');
-    expect(f.euro(1.2)).toBe('1,20 €');
-    expect(f.strompreis(0.35)).toBe('0,35 €/kWh');
-    expect(f.kwh(3420)).toBe('3,42 kWh');
-    expect(f.prozent(0.425)).toBe('43 %');
+    expect(f.wattEineStelle(0.5)).toBe('0,5 W');
+    expect(f.wattEineStelle(10.3)).toBe('10,3 W');
+    expect(f.wattDifferenz(1199)).toBe('+1.199 W');
+    expect(f.wattDifferenz(-2200)).toBe('−2.200 W');
+    expect(f.euroProStunde(1.96)).toBe('1,96 €/h');
+    expect(f.euroProStunde(0.026355)).toBe('0,03 €/h');
+    expect(f.euro(1.2)).toBe('1,20 €');
+    expect(f.strompreis(0.35)).toBe('0,35 €/kWh');
+    expect(f.kwh(3420)).toBe('3,42 kWh');
+    expect(f.prozent(0.425)).toBe('43 %');
   });
 
   it('formatiert die Restzeit', () => {
@@ -87,6 +87,6 @@ describe('Formatierung de-DE (FR-29)', () => {
   });
 
   it('kein negatives Null', () => {
-    expect(f.wattEineStelle(-0.01)).toBe('0,0 W');
+    expect(f.wattEineStelle(-0.01)).toBe('0,0 W');
   });
 });

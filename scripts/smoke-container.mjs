@@ -20,6 +20,13 @@ if (health.status !== 200 || status.status !== 'ok' || status.version !== versio
   fehler(`Health ${health.status} ${JSON.stringify(status)}`);
 }
 
+// Security-Header aus next.config.mjs müssen im Image wirken (Review CR-05)
+const seite = await fetch(`${BASIS}/`);
+if (seite.status !== 200) fehler(`Startseite ${seite.status}`);
+if (seite.headers.get('x-frame-options') !== 'DENY' || seite.headers.get('x-powered-by')) {
+  fehler('Security-Header fehlen oder X-Powered-By ist gesetzt');
+}
+
 const ws = new WebSocket(`${BASIS.replace(/^http/, 'ws')}/mqtt`);
 const abbruch = setTimeout(() => fehler('Zeitüberschreitung'), 10_000);
 let snapshot = null;

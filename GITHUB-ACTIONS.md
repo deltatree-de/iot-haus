@@ -1,266 +1,114 @@
-# 🚀 GitHub Actions - CI/CD Pipeline
+# IoT-Haus 2.0 – GitHub Actions
 
-![Docker Build](https://github.com/deltatree-de/iot-haus/actions/workflows/docker-publish.yml/badge.svg)
-![Release](https://github.com/deltatree-de/iot-haus/actions/workflows/release.yml/badge.svg)
+![CI und Release](https://github.com/deltatree-de/iot-haus/actions/workflows/ci-release.yml/badge.svg)
 
-## 📋 Überblick
+Es gibt genau einen Workflow: [`.github/workflows/ci-release.yml`](.github/workflows/ci-release.yml) („CI und Release“).
+Er ersetzt die früheren `docker-publish.yml` und `release.yml`.
 
-Das Smart Home Control System nutzt GitHub Actions für vollautomatisierte Builds, Tests und Deployments. Alle Docker Images werden automatisch zur **GitHub Container Registry (GHCR)** gepusht.
+## Auslöser
 
-### 🎯 CI/CD Pipeline
+| Ereignis | Was läuft |
+|---|---|
+| Pull Request gegen `main` | `qualitaet` → `container` (nur prüfen, nichts veröffentlichen) |
+| Push auf `main` | `qualitaet` → `container` → `image` → `release` |
+
+Tag-Pushes lösen **nichts** aus. Tags und Releases erzeugt der Workflow selbst, nachdem alle Prüfungen grün sind.
+Ein neuer Lauf bricht einen laufenden PR-Lauf desselben Branches ab; Läufe auf `main` werden nie abgebrochen.
+
+## Jobs
 
 ```mermaid
 graph LR
-    A[Git Push] --> B[GitHub Actions]
-    B --> C[Docker Build]
-    C --> D[Multi-Platform]
-    D --> E[GHCR Push]
-    E --> F[Release]
-    F --> G[Deployment Ready]
+    Q[qualitaet] --> C[container]
+    C --> I[image<br/>nur main]
+    I --> R[release<br/>nur main]
 ```
 
-## 🔧 Workflows
+### 1. `qualitaet` – Lint, Typen, Tests, Build, Audit
 
-### 1. 🐳 Docker Build & Publish (`docker-publish.yml`)
+Node 22, `npm ci`, dann:
 
-**Trigger-Events:**
-- ✅ Push auf `main` oder `master` Branch
-- ✅ Push von Tags (`v*`)
-- ✅ Pull Requests (nur Build, kein Push)
+| Schritt | Befehl | Bricht ab bei |
+|---|---|---|
+| Lint | `npm run lint` | jedem Fehler und jeder Warnung |
+| Typecheck | `npm run typecheck` | Typfehler |
+| Tests | `npm test -- --coverage` | rotem Test oder < 90 % Zeilenabdeckung in `src/domain/**` und `server/zustandsdienst.ts` |
+| Build | `npm run build` (Ausgabe nach `build.log`) | Buildfehler |
+| JS-Budget | `node scripts/pruefe-js-budget.mjs build.log` | First Load JS der Route `/` > 200 kB |
+| Audit | `npm audit --omit=dev --audit-level=high` | Laufzeitabhängigkeit mit hoher oder kritischer Lücke |
 
-**🚀 Features:**
-- **Multi-Platform Builds**: `linux/amd64`, `linux/arm64`
-- **GitHub Actions Cache**: Schnellere Builds durch Layer-Caching
-- **Automatisches Tagging**: Basierend auf Git-Referenzen
-- **Smart Publishing**: Nur bei Push-Events (nicht bei PRs)
-- **Build Summary**: Automatische Deployment-AnweisungenI/CD
+### 2. `container` – das gebaute Image prüfen
 
-## Übersicht
+1. Image für `linux/amd64` bauen (`iot-haus:ci`, Build-Cache `type=gha`).
+2. **Härtung:** Im Image dürfen `curl`, `wget`, `npm`, `npx`, `corepack`, `yarn`, `apk`, `nc` nicht existieren; die UID muss 1000 sein.
+3. Container mit Volume starten und mit [`scripts/warte-healthy.sh`](scripts/warte-healthy.sh) `ci 60` warten, bis der Image-Healthcheck
+   `healthy` meldet (höchstens 60 s; sonst Container-Log und Abbruch).
+4. **Rauchtest** [`scripts/smoke-container.mjs`](scripts/smoke-container.mjs) `schalten`: `/api/health` = 200 mit der Version aus
+   `package.json`, Snapshot mit 28 Geräten, PC einschalten → `bestaetigt`.
+5. `docker restart`, erneut mit `warte-healthy.sh` auf `healthy` warten, Rauchtest `pruefen`: Der PC ist nach dem Neustart noch an (Persistenz im echten Mosquitto).
+6. Container-Log wird immer ausgegeben.
 
-Das Smart Home Control System nutzt GitHub Actions für automatisierte Builds, Tests und Deployments. Alle Docker Images werden automatisch zur GitHub Container Registry (GHCR) gepusht.
+### 3. `image` – `:latest` veröffentlichen (nur Push auf `main`)
 
-## Workflows
+Multi-Arch-Build `linux/amd64,linux/arm64` und Push nach `ghcr.io/deltatree-de/iot-haus` mit den Tags
 
-### 1. Docker Build & Publish (`docker-publish.yml`)
+- `:latest` – das läuft produktiv per `docker-compose.prod.yml`,
+- `:sha-<kurz>` – der kurze Commit-Hash, für feste Stände und Rückkehr zu einem Stand.
 
-**Trigger:**
-- Push auf `main` oder `master` Branch
-- Push von Tags (`v*`)
-- Pull Requests
+Der Digest geht als Ausgabe an `release`.
 
-**Features:**
-- Multi-Platform Builds (linux/amd64, linux/arm64)
-- GitHub Actions Cache für schnellere Builds
-- Automatisches Tagging basierend auf Git-Referenzen
-- Nur Publishing bei Push-Events (nicht bei PRs)
+### 4. `release` – Version, Tag und GitHub Release (nur Push auf `main`)
 
-**🏷️ Generierte Tags:**
-| Git Referenz | Docker Tag | Beschreibung |
-|-------------|------------|-------------|
-| `main` branch | `latest` | Neueste Entwicklungsversion |
-| `v1.2.3` tag | `v1.2.3`, `v1.2`, `v1` | Semver-basierte Tags |
-| `feature/xyz` branch | `feature-xyz` | Branch-spezifische Builds |
-| `PR #123` | `pr-123` | Pull Request Builds |
+1. Version lesen: `node -p "require('./package.json').version"`.
+2. Gibt es das GitHub Release `v<version>` schon (`gh release view`), endet der Job ohne Änderung („Release existiert bereits“).
+3. Sonst wird jeder Teil einzeln angelegt, **nur wenn er fehlt**, in dieser Reihenfolge:
+   1. Image-Tag `:<version>` (Prüfung per `docker buildx imagetools inspect`): auf denselben Digest wie `:latest` setzen
+      (`docker buildx imagetools create`, kein neuer Build).
+   2. Git-Tag `v<version>` (Prüfung per `git ls-remote --tags`): auf den Commit setzen und pushen.
+   3. GitHub Release „IoT-Haus v&lt;version&gt;“ mit dem Text aus `.github/release-hinweise/v<version>.md` plus automatisch
+      erzeugter Änderungsliste.
 
-### 2. 🏷️ Release (`release.yml`)
+Der Job ist dadurch idempotent: Bricht ein Lauf mittendrin ab (z. B. nach dem Tag, vor dem Release), vervollständigt ihn ein Re-Run
+oder der nächste Push auf `main`, statt still grün zu enden. Existiert ein Teil schon, bleibt er unverändert; ein vorhandenes
+Versions-Image oder ein vorhandener Tag wird nicht auf einen neueren Commit verschoben.
 
-**Trigger-Events:**
-- ✅ Push von Git-Tags (`v*`)
+Fehlt die Datei mit den Release-Hinweisen, schlägt der Job fehl, bevor etwas angelegt wird. `:latest` und `:sha-…` sind dann schon
+veröffentlicht. Nach dem Nachreichen der Datei legt der nächste Push auf `main` Versions-Image, Tag und Release an.
 
-**🚀 Features:**
-- **Automatische Changelog-Generierung** aus Git-Commits
-- **GitHub Release** mit Release Notes  
-- **Deployment-Anweisungen** in Job Summary
-- **Multi-Platform Docker Images** mit Versionierung
+## Erlaubte Image-Tags
 
-## 🎮 Verwendung
+Nur `:latest`, `:<version>` (z. B. `:2.0.0`) und `:sha-<kurz>`. Tags wie `:main`, `:2.0` oder `:2` gibt es nicht.
 
-### 🔄 Automatischer Build bei Code-Änderungen
+## Ein Release erstellen
+
+1. Im Feature-Branch `version` in `package.json` hochsetzen (und `package-lock.json` per `npm install --package-lock-only` angleichen).
+2. `.github/release-hinweise/v<version>.md` anlegen. Vorlage: [`v2.0.0.md`](.github/release-hinweise/v2.0.0.md), inklusive
+   Upgrade-Hinweisen, falls Betreiber etwas tun müssen.
+3. Pull Request gegen `main`; `qualitaet` und `container` müssen grün sein.
+4. Merge. Der Push auf `main` veröffentlicht `:latest`, `:sha-…`, `:<version>`, den Tag `v<version>` und das GitHub Release.
+
+Ohne Versionssprung veröffentlicht jeder Merge nur `:latest` und `:sha-…`.
+
+## Berechtigungen
+
+- Standard für den Workflow: `contents: read`.
+- `image`: zusätzlich `packages: write`.
+- `release`: `contents: write` (Tag und Release) und `packages: write` (Versions-Tag).
+- Anmeldung an GHCR mit dem automatischen `GITHUB_TOKEN`; weitere Secrets sind nicht nötig.
+- Actions werden über Hauptversions-Tags eingebunden (`actions/checkout@v4`, `actions/setup-node@v4`, `docker/*-action@v3/v5/v6`).
+
+## Lokal dasselbe prüfen
 
 ```bash
-# Jeder Push auf main → automatischer Build + latest Tag
-git add .
-git commit -m "Feature: Neue Lichtsteuerung"
-git push origin main
+npm ci
+npm run lint && npm run typecheck && npm test -- --coverage
+npm run build 2>&1 | tee build.log && node scripts/pruefe-js-budget.mjs build.log
+npm audit --omit=dev --audit-level=high
 
-# GitHub Actions führt automatisch aus:
-# 1. ✅ Code Checkout
-# 2. 🐳 Docker Build (Multi-Platform)
-# 3. 📦 Push zu GHCR als 'latest'
-# 4. 📋 Build Summary generieren
+docker build -t iot-haus:ci .
+docker run -d --name ci -p 3000:3000 -v ci-daten:/var/lib/mosquitto iot-haus:ci
+scripts/warte-healthy.sh ci 60
+node scripts/smoke-container.mjs schalten
+docker restart ci && scripts/warte-healthy.sh ci 60 && node scripts/smoke-container.mjs pruefen
+docker rm -f ci && docker volume rm ci-daten
 ```
-
-### 🏷️ Release erstellen
-
-```bash
-# 1. Version Tag erstellen und pushen
-git tag v1.0.0
-git push origin v1.0.0
-
-# 2. GitHub Actions erstellt automatisch:
-#    ✅ GitHub Release mit Changelog
-#    🐳 Docker Images: v1.0.0, v1.0, v1
-#    📋 Deployment-Dokumentation
-#    🔗 Release Notes mit Git-History
-```
-
-### 📥 Images verwenden
-
-```bash
-# 🔥 Latest Development Build
-docker pull ghcr.io/deltatree-de/iot-haus:latest
-
-# 🏆 Spezifische Release Version
-docker pull ghcr.io/deltatree-de/iot-haus:v1.0.0
-
-# 🎯 Mit Production Compose
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## 🔧 Repository-Einstellungen
-
-### ✅ Erforderliche Berechtigungen
-
-Die folgenden Berechtigungen sind bereits in den Workflows konfiguriert:
-
-| Permission | Scope | Verwendung |
-|------------|-------|------------|
-| `contents: read` | Repository | Code Checkout und Zugriff |
-| `packages: write` | GHCR | Docker Image Push |
-| `contents: write` | Repository | Release-Erstellung (nur release.yml) |
-
-### 🔐 Automatische Secrets
-
-Die Workflows nutzen automatische GitHub-Variablen:
-
-| Variable | Typ | Beschreibung |
-|----------|-----|-------------|
-| `GITHUB_TOKEN` | Secret | Automatisch verfügbar |
-| `GITHUB_REPOSITORY` | Variable | Repository-Name für Image-Tagging |
-| `GITHUB_ACTOR` | Variable | Username für GHCR Login |
-
-### 🌍 Environment Variables
-
-```yaml
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-```
-
-## 🏗️ Build-Details
-
-### 📦 Multi-Platform Matrix
-
-Die Builds erstellen Images für folgende Architekturen:
-
-| Platform | Beschreibung | Verwendung |
-|----------|-------------|------------|
-| `linux/amd64` | x86_64 Intel/AMD | Standard Server, Desktop |
-| `linux/arm64` | ARM64 | Apple Silicon, AWS Graviton, Raspberry Pi |
-
-### ⚡ Build-Optimierungen
-
-- **🎯 Build Cache**: GitHub Actions Cache für Docker Layers
-- **🏗️ BuildKit**: Erweiterte Docker Build Features
-- **📋 Multi-Stage**: Optimierte Dockerfile für kleine Images
-- **⚡ Parallel Builds**: Concurrent Builds für verschiedene Plattformen
-
-### 🔍 Cache-Strategy
-
-```yaml
-cache-from: type=gha
-cache-to: type=gha,mode=max
-```
-
-## 📊 Monitoring & Status
-
-### 🏷️ Build Status überprüfen
-
-```bash
-# GitHub CLI verwenden
-gh workflow list
-gh workflow view "Build and Publish Docker Image"
-
-# Letzte Runs anzeigen  
-gh run list --workflow="docker-publish.yml"
-
-# Live-Status verfolgen
-gh run watch
-```
-
-### 📝 Logs einsehen
-
-```bash
-# Logs für letzten Run
-gh run view --log
-
-# Spezifischen Run anzeigen
-gh run view <run-id> --log
-
-# Workflow-spezifische Logs
-gh run view --log --job="build-and-push"
-```
-
-### 🌐 Web-Interface
-
-- **Actions Tab**: https://github.com/deltatree-de/iot-haus/actions
-- **Packages**: https://github.com/deltatree-de/iot-haus/pkgs/container/iot-haus
-- **Releases**: https://github.com/deltatree-de/iot-haus/releases
-
-## 🚨 Troubleshooting
-
-### Häufige Probleme
-
-**❌ Build schlägt fehl:**
-```bash
-# 1. Dockerfile-Syntax prüfen
-docker build . --dry-run
-
-# 2. Dependencies prüfen
-npm audit
-npm install
-
-# 3. Lokalen Build testen
-docker build -t test-build .
-```
-
-**❌ Push zu GHCR schlägt fehl:**
-```yaml
-# Berechtigungen prüfen (sollten automatisch korrekt sein)
-permissions:
-  contents: read
-  packages: write
-```
-
-**❌ Multi-Platform Build-Probleme:**
-```bash
-# Dependencies für beide Architekturen verfügbar?
-# Buildx Setup prüfen
-docker buildx ls
-docker buildx inspect --bootstrap
-```
-
-### 🐛 Debug-Modus
-
-```yaml
-# In Workflow-Steps hinzufügen für detaillierte Logs
-env:
-  ACTIONS_STEP_DEBUG: true
-  RUNNER_DEBUG: 1
-```
-
-## 📈 Performance-Metriken
-
-### Build-Zeiten
-- **Ohne Cache**: ~8-12 Minuten
-- **Mit Cache**: ~2-4 Minuten  
-- **Multi-Platform**: +50% Zeit
-
-### Image-Größen
-- **Komprimiert**: ~150 MB
-- **Entpackt**: ~400 MB
-- **Multi-Arch Manifest**: ~300 KB
-
----
-
-🤖 **GitHub Actions Setup** - Vollautomatisierte CI/CD Pipeline für Smart Home Control

@@ -40,7 +40,7 @@ describe('hausReducer', () => {
     let z = verbundenerZustand();
     z = aenderung(z, { 'kueche.mikrowelle': true }, { art: 'geraet', ref: 'kueche.mikrowelle', befehlId: null });
     const m = z.meldungen.at(-1)!;
-    expect(m).toMatchObject({ art: 'plus', delta: '+1.199 W', text: 'Mikrowelle (Küche)', sammeln: true });
+    expect(m).toMatchObject({ art: 'plus', delta: '+1.199 W', text: 'Mikrowelle (Küche)', sammeln: true });
     expect(m.ansage).toMatch(/^Mikrowelle an\. Hausverbrauch [\d.]+ Watt\.$/);
     expect(z.letzteAenderung).toMatchObject({ nr: 1, differenzW: 1199, geraete: ['kueche.mikrowelle'], raeume: ['kueche'] });
     expect(z.server!.energie.wh).toBe(3500);
@@ -49,7 +49,7 @@ describe('hausReducer', () => {
   it('Texte für Szene, Raum aus und Auto-Aus', () => {
     let z = verbundenerZustand();
     z = aenderung(z, { 'kueche.wasserkocher': false }, { art: 'autoAus', ref: 'kueche.wasserkocher', befehlId: null });
-    expect(z.meldungen.at(-1)).toMatchObject({ art: 'minus', delta: '−2.200 W', text: 'Wasserkocher (Küche) automatisch ausgeschaltet' });
+    expect(z.meldungen.at(-1)).toMatchObject({ art: 'minus', delta: '−2.200 W', text: 'Wasserkocher (Küche) automatisch ausgeschaltet' });
     z = aenderung(z, { 'wohnzimmer.fernseher': true }, { art: 'szene', ref: 'filmabend', befehlId: 'x' });
     expect(z.meldungen.at(-1)!.text).toBe('Filmabend aktiviert');
     z = aenderung(z, { 'wohnzimmer.fernseher': false }, { art: 'raumAus', ref: 'wohnzimmer', befehlId: 'y' });
@@ -59,10 +59,10 @@ describe('hausReducer', () => {
     expect(z.meldungen).toHaveLength(3); // höchstens 3
   });
 
-  it('±0 W bei gerundeter Differenz 0', () => {
-    // Stehlampe aus (−10 W), Bad-Deckenlampe an (+10 W)
+  it('±0 W bei gerundeter Differenz 0', () => {
+    // Stehlampe aus (−10 W), Bad-Deckenlampe an (+10 W)
     const z = aenderung(verbundenerZustand(), { 'wohnzimmer.stehlampe': false, 'bad.deckenlampe': true }, { art: 'szene', ref: 'filmabend', befehlId: null });
-    expect(z.meldungen.at(-1)).toMatchObject({ art: 'info', delta: '±0 W' });
+    expect(z.meldungen.at(-1)).toMatchObject({ art: 'info', delta: '±0 W' });
   });
 
   it('ausstehender Schaltbefehl: Anzeige sofort, Bestätigung räumt auf (FR-21)', () => {
@@ -128,6 +128,19 @@ describe('hausReducer', () => {
     expect(z.server!.energie.wh).toBe(4000);
     expect(z.uhrVersatzMs).toBe(1000);
     expect(hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: { typ: 'energie', energie: { datum: 'x', wh: 1 }, serverZeit: 1 }, jetzt: 1, clientVersion: V }).server).toBeNull();
+  });
+
+  it('robust gegen unbekannte Kennungen und bei Versionskonflikt (Review CR-06)', () => {
+    let z = verbundenerZustand();
+    z = aenderung(z, { 'keller.sauna': true, 'bad.foehn': true }, { art: 'szene', ref: 'party', befehlId: null });
+    expect(z.meldungen.at(-1)!.text).toBe('party aktiviert');
+    expect(z.server!.zustand['bad.foehn'].an).toBe(true);
+    z = aenderung(z, { 'bad.foehn': false }, { art: 'geraet', ref: 'keller.sauna', befehlId: null });
+    expect(z.meldungen.at(-1)!.text).toBe('keller.sauna');
+    z = aenderung(z, { 'bad.foehn': true }, { art: 'unbekannt' as 'geraet', ref: 'x', befehlId: null });
+    expect(z.server!.zustand['bad.foehn'].an).toBe(true);
+    const alt = verbundenerZustand('1.0.0');
+    expect(aenderung(alt, { 'bad.foehn': true }, { art: 'geraet', ref: 'bad.foehn', befehlId: null })).toBe(alt);
   });
 
   it('Meldung entfernen; Änderung ohne Snapshot wird ignoriert', () => {

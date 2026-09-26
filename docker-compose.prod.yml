@@ -14,6 +14,8 @@ services:
       - MQTT_BROKER_PORT=1883
       # Strompreis in €/kWh mit Dezimalpunkt (Standard 0.35):
       # - STROMPREIS_EUR_PRO_KWH=0.32
+      # Optional gegen DNS-Rebinding: nur diese Hostnamen dürfen den WebSocket öffnen (ohne Port):
+      # - ERLAUBTE_HOSTS=haus.local,192.168.1.10
     volumes:
       - mosquitto-data:/var/lib/mosquitto
     restart: unless-stopped

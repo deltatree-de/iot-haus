@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
-import paket from "./package.json";
+// Reines JavaScript, damit das Runtime-Image (ohne TypeScript, ohne npm) die Konfiguration lesen kann.
+import { readFileSync } from "node:fs";
 
-const nextConfig: NextConfig = {
+const paket = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: paket.version,
   },

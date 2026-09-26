@@ -1,22 +1,53 @@
-# 🚀 Kubernetes Deployment Guide
+# IoT-Haus 2.0 – Kubernetes
 
-## 📋 Übersicht
+Das Repository enthält keine fertigen Manifeste. Die folgenden Beispiele sind eine vollständige, minimale Vorlage:
+Namespace, PersistentVolumeClaim, Deployment, Service und Ingress. Namen, StorageClass und Hostname an den Cluster anpassen.
 
-Diese Anleitung zeigt, wie das IoT-Haus Control System in Kubernetes mit Ingress deployed wird. Die Anwendung unterstützt automatische URL-Erkennung für WebSocket-Verbindungen.
+## Warum genau eine Replik
 
-## 🐳 Kubernetes Manifests
+IoT-Haus läuft als **ein** Pod mit **einer** Replik, und das bleibt so:
 
-### 1. Deployment
+- Der Zustand (28 Geräte, Tagesverbrauch, Auto-Aus-Timer) liegt autoritativ im Speicher des Node-Servers und wird im
+  **eingebetteten Mosquitto desselben Containers** gespeichert (Volume `/var/lib/mosquitto`).
+- Zwei Repliken hätten zwei unabhängige Server mit je eigenem Broker. Browser, die der Service auf verschiedene Pods verteilt,
+  würden unterschiedliche Häuser sehen, Änderungen erreichten nur einen Teil der Clients, und zwei Pods würden um dasselbe Volume
+  konkurrieren.
+- Deshalb: `replicas: 1`, Update-Strategie `Recreate` (der alte Pod gibt Volume und Zustand frei, bevor der neue startet) und ein
+  `ReadWriteOnce`-Volume. Kein HorizontalPodAutoscaler.
+
+Bei einem Update ist die App für einige Sekunden nicht erreichbar. Browser zeigen dann „Getrennt“ und verbinden sich selbst neu.
+
+## Manifeste
 
 ```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iot-haus
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-data
+  namespace: iot-haus
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 100Mi
+  # storageClassName: <klasse>
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: iot-haus
+  namespace: iot-haus
   labels:
     app: iot-haus
 spec:
-  replicas: 2
+  replicas: 1                 # nie erhöhen, siehe oben
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: iot-haus
@@ -25,290 +56,155 @@ spec:
       labels:
         app: iot-haus
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000         # Volume für UID 1000 beschreibbar
       containers:
-      - name: iot-haus
-        image: ghcr.io/deltatree-de/iot-haus:latest
-        ports:
-        - containerPort: 3000
-          name: http
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: NEXT_PUBLIC_MQTT_BROKER_URL
-          value: "auto"  # Automatische URL-Erkennung
-        - name: MQTT_BROKER_HOST
-          value: "127.0.0.1"
-        - name: MQTT_BROKER_PORT
-          value: "1883"
-        livenessProbe:
-          httpGet:
-            path: /api/health
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /api/health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
+        - name: iot-haus
+          image: ghcr.io/deltatree-de/iot-haus:2.0.0   # oder :latest mit imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: STROMPREIS_EUR_PRO_KWH
+              value: "0.35"
+            - name: ERLAUBTE_HOSTS          # Schutz gegen DNS-Rebinding, Hostnamen ohne Port
+              value: "haus.example.de"
+          volumeMounts:
+            - name: mosquitto-data
+              mountPath: /var/lib/mosquitto
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12        # bis zu 60 s für den Start
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6         # 60 s Toleranz, siehe „Probes“
+      terminationGracePeriodSeconds: 20
+      volumes:
+        - name: mosquitto-data
+          persistentVolumeClaim:
+            claimName: mosquitto-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: iot-haus-service
+  name: iot-haus
+  namespace: iot-haus
 spec:
   selector:
     app: iot-haus
   ports:
-  - name: http
-    port: 80
-    targetPort: 3000
-    protocol: TCP
-  type: ClusterIP
-```
-
-### 2. Ingress (NGINX)
-
-```yaml
+    - name: http
+      port: 80
+      targetPort: http
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: iot-haus-ingress
+  name: iot-haus
+  namespace: iot-haus
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/websocket-services: "iot-haus-service"
+    # ingress-nginx: WebSocket-Verbindungen lange offen halten
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    # SSL/TLS für WSS
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Anmeldung vor der App (siehe unten), z. B. Basic Auth:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: iot-haus-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "IoT-Haus"
 spec:
+  ingressClassName: nginx
   tls:
-  - hosts:
-    - iot-haus.your-domain.com
-    secretName: iot-haus-tls
+    - hosts: ["haus.example.de"]
+      secretName: iot-haus-tls
   rules:
-  - host: iot-haus.your-domain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: iot-haus-service
-            port:
-              number: 80
+    - host: haus.example.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: iot-haus
+                port:
+                  name: http
 ```
 
-### 3. Traefik Ingress (Alternative)
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: iot-haus-traefik
-  annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
-    # WebSocket Unterstützung
-    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
-spec:
-  rules:
-  - host: iot-haus.your-domain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: iot-haus-service
-            port:
-              number: 80
-  tls:
-  - hosts:
-    - iot-haus.your-domain.com
-    secretName: iot-haus-tls
-```
-
-## 🔧 Deployment Commands
+Anwenden:
 
 ```bash
-# Namespace erstellen
-kubectl create namespace iot-haus
-
-# Manifests anwenden
-kubectl apply -f k8s/ -n iot-haus
-
-# Status prüfen
-kubectl get pods -n iot-haus
-kubectl get svc -n iot-haus
-kubectl get ingress -n iot-haus
-
-# Logs anzeigen
-kubectl logs -f deployment/iot-haus -n iot-haus
+kubectl apply -f iot-haus.yaml
+kubectl -n iot-haus rollout status deploy/iot-haus
+kubectl -n iot-haus logs deploy/iot-haus -f
 ```
 
-## 🌐 URL-Automatik
+## Probes
 
-### Funktionsweise
+Alle Probes nutzen `GET /api/health`. Der Endpunkt antwortet `200`, wenn der eingebettete Broker verbunden und der Zustand geladen ist,
+sonst `503` (auch in den ersten Sekunden nach dem Start und **solange Mosquitto nicht erreichbar ist**).
 
-Die Anwendung erkennt automatisch die korrekte WebSocket-URL:
+- **startupProbe** gibt dem Pod bis zu 60 s zum Starten.
+- **readinessProbe** nimmt den Pod bei `503` sofort aus dem Service. Das passt zum Verhalten des Servers, der bei Broker-Ausfall ohnehin
+  alle WebSockets schließt und neue ablehnt.
+- **livenessProbe** ist bewusst tolerant (6 × 10 s). supervisord startet einen abgestürzten Mosquitto selbst neu; erst wenn der Broker
+  länger als etwa eine Minute fehlt, startet Kubernetes den Pod neu.
 
-```javascript
-// Beispiel: https://iot-haus.your-domain.com
-// WebSocket URL wird automatisch: wss://iot-haus.your-domain.com/mqtt
+Das Image hat zusätzlich einen Docker-`HEALTHCHECK` (per `node` gegen `127.0.0.1:$PORT/api/health`, ohne curl). Kubernetes wertet ihn
+nicht aus; maßgeblich sind die Probes. Probes kommen über die Pod-IP und nicht über den WebSocket, `ERLAUBTE_HOSTS` betrifft sie nicht.
 
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const host = window.location.host;
-const mqttUrl = `${protocol}//${host}/mqtt`;
-```
+## Sicherheit
 
-### Unterstützte Szenarien
+- Das Image läuft als UID/GID 1000 ohne Paketmanager und ohne curl/wget. `runAsNonRoot: true` funktioniert, weil das Image eine
+  numerische Benutzerkennung setzt.
+- Beschreibbar sein müssen `/var/lib/mosquitto` (Volume), `/var/log/supervisor`, `/run/supervisor` und `/app/.next/cache`.
+  Ein `readOnlyRootFilesystem` ist deshalb nicht ohne zusätzliche `emptyDir`-Volumes möglich und wird hier nicht verwendet.
+- IoT-Haus hat keine eigene Anmeldung. Wer den Ingress aus dem Internet erreichbar macht, braucht TLS und eine Anmeldung am Ingress
+  (Basic Auth wie oben oder Forward-Auth mit oauth2-proxy/Authelia). Sie muss auch für den WebSocket `/mqtt` gelten.
+  Basic-Auth-Secret anlegen:
 
-| Szenario | Browser URL | WebSocket URL |
-|----------|-------------|---------------|
-| **Localhost** | `http://localhost:3000` | `ws://localhost:3000/mqtt` |
-| **HTTPS Domain** | `https://iot-haus.example.com` | `wss://iot-haus.example.com/mqtt` |
-| **HTTP Domain** | `http://iot-haus.local` | `ws://iot-haus.local/mqtt` |
-| **Port Mapping** | `https://example.com:8080` | `wss://example.com:8080/mqtt` |
+  ```bash
+  htpasswd -c auth familie
+  kubectl -n iot-haus create secret generic iot-haus-basic-auth --from-file=auth
+  ```
 
-## 🔐 Security Considerations
+- ingress-nginx reicht den `Host`-Header durch und setzt `X-Forwarded-Host`; damit besteht der WebSocket die Origin-Prüfung.
+  Andere Ingress-Controller müssen eines von beiden ebenfalls liefern, sonst antwortet der Server mit 403.
+- `ERLAUBTE_HOSTS` (im Beispiel `haus.example.de`) lässt WebSocket-Verbindungen nur zu, wenn `Host` und – falls gesetzt –
+  `X-Forwarded-Host` in der Liste stehen (Schutz gegen DNS-Rebinding). Wird der Pod zusätzlich über einen anderen Namen
+  erreicht (z. B. `kubectl port-forward` → `localhost`), diesen Namen ergänzen: `haus.example.de,localhost`.
+- Je Pod gelten die Server-Limits: höchstens 100 gleichzeitige WebSocket-Verbindungen, 20 Befehle pro Sekunde je Verbindung
+  (Vorrat 100); Details in [API.md](API.md#22-rahmenbedingungen).
 
-### 1. TLS/SSL Termination
-
-```yaml
-# Ingress-Annotation für NGINX
-nginx.ingress.kubernetes.io/ssl-redirect: "true"
-
-# Oder für Traefik
-traefik.ingress.kubernetes.io/router.tls: "true"
-```
-
-### 2. Network Policies
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: iot-haus-netpol
-spec:
-  podSelector:
-    matchLabels:
-      app: iot-haus
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from: []  # Allow all ingress
-    ports:
-    - protocol: TCP
-      port: 3000
-  egress:
-  - {}  # Allow all egress
-```
-
-## 📊 Monitoring & Observability
-
-### Health Checks
+## Update und Rückkehr zu einer Version
 
 ```bash
-# Health Check Endpoint
-curl https://iot-haus.your-domain.com/api/health
-
-# Response:
-{
-  "status": "healthy",
-  "timestamp": "2025-09-02T10:30:00.000Z",
-  "service": "iot-haus",
-  "version": "1.0.0"
-}
+kubectl -n iot-haus set image deploy/iot-haus iot-haus=ghcr.io/deltatree-de/iot-haus:2.0.0
+kubectl -n iot-haus rollout status deploy/iot-haus
 ```
 
-### Prometheus Metrics (Optional)
-
-```yaml
-# ServiceMonitor für Prometheus
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: iot-haus-metrics
-spec:
-  selector:
-    matchLabels:
-      app: iot-haus
-  endpoints:
-  - port: http
-    path: /api/health
-    interval: 30s
-```
-
-## 🚀 Scaling
-
-### Horizontal Pod Autoscaler
-
-```yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: iot-haus-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: iot-haus
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-```
-
-## 🔧 Troubleshooting
-
-### WebSocket Verbindungsprobleme
-
-```bash
-# Ingress Controller Logs
-kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
-
-# Pod Logs
-kubectl logs -f deployment/iot-haus -n iot-haus
-
-# WebSocket Test
-wscat -c wss://iot-haus.your-domain.com/mqtt
-```
-
-### Häufige Probleme
-
-1. **WebSocket Timeout**: Proxy-Timeouts in Ingress erhöhen
-2. **SSL-Fehler**: Cert-Manager und TLS-Konfiguration prüfen
-3. **CORS-Probleme**: Origin-Headers in Ingress konfigurieren
-
-## 📚 Weitere Ressourcen
-
-- [Kubernetes Ingress Documentation](https://kubernetes.io/docs/concepts/services-networking/ingress/)
-- [NGINX Ingress WebSocket Support](https://kubernetes.github.io/ingress-nginx/user-guide/miscellaneous/#websockets)
-- [Traefik Kubernetes Guide](https://doc.traefik.io/traefik/providers/kubernetes-ingress/)
-
----
-
-🏠 **IoT-Haus Control System** - Kubernetes-ready mit automatischer URL-Erkennung
+Mit `:latest` genügt `kubectl -n iot-haus rollout restart deploy/iot-haus` (bei `imagePullPolicy: Always`). Der Zustand bleibt im PVC
+erhalten. Für feste Stände die Tags `:<version>` oder `:sha-<kurz>` verwenden (siehe [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md)).

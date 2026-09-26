@@ -48,6 +48,8 @@ describe('Persistenz über Neustarts (FR-17)', () => {
     const pub = await mqtt.connectAsync(broker.url);
     await pub.publishAsync('iot-haus/v2/geraet/keller.sauna/zustand', JSON.stringify({ v: 1, an: true, seit: 1 }), { retain: true, qos: 1 });
     await pub.publishAsync('iot-haus/v2/geraet/bad.foehn/zustand', 'kaputt', { retain: true, qos: 1 });
+    await pub.publishAsync('iot-haus/v2/geraet/bad.deckenlampe/zustand', JSON.stringify({ v: 1, an: true, seit: -5 }), { retain: true, qos: 1 });
+    await pub.publishAsync('iot-haus/v2/energie/heute', '{"v":1,"datum":"2026-09-26","wh":1e999,"stand":1}', { retain: true, qos: 1 });
     await pub.publishAsync('iot-haus/v2/geraet/bad.heizluefter/zustand', JSON.stringify({ v: 1, an: true, seit: Date.now() }), { retain: true, qos: 1 });
     await pub.endAsync();
 
@@ -57,6 +59,9 @@ describe('Persistenz über Neustarts (FR-17)', () => {
     aufraeumen.push(() => c.schliesse());
     const z = c.zustand();
     expect(z['bad.foehn']).toBe(false);
+    expect(z['bad.deckenlampe']).toBe(false);
+    const snap = c.nachrichten[0];
+    expect(snap.typ === 'snapshot' && Number.isFinite(snap.energie.wh)).toBe(true);
     expect(z['bad.heizluefter']).toBe(true);
     expect(Object.keys(z)).not.toContain('keller.sauna');
   });

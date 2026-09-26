@@ -6,6 +6,7 @@ import { raumById } from '@/domain/katalog';
 import { prozent, watt } from '@/domain/format';
 import { runden, verbrauchNachRaum } from '@/domain/verbrauch';
 import { useHaus } from '@/hooks/useHaus';
+import { T } from '@/ui/texte';
 
 export function VerbrauchNachRaum({ className }: { className?: string }) {
   const { zustand } = useHaus();
@@ -15,7 +16,7 @@ export function VerbrauchNachRaum({ className }: { className?: string }) {
   return (
     <section aria-labelledby={titelId} className={className}>
       <h2 id={titelId} className="mb-3 text-lg font-semibold text-ink">
-        Verbrauch nach Raum
+        {T.verbrauch.titel}
       </h2>
       <div className="rounded-2xl border border-border bg-surface p-4 ebene-1">
         {z ? (

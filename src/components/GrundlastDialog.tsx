@@ -3,6 +3,7 @@
 // Bestätigung vor dem Ausschalten eines Grundlastgeräts (FR-4). Natives <dialog>: Fokusfalle, Escape = Abbrechen.
 import { useEffect, useRef } from 'react';
 import type { Geraet } from '@/domain/katalog';
+import { T } from '@/ui/texte';
 
 interface Props {
   geraet: Geraet | null;
@@ -45,13 +46,13 @@ export function GrundlastDialog({ geraet, bedienbar, onAbbrechen, onAusschalten 
       {geraet && (
         <div className="p-6">
           <h2 id="grundlast-titel" className="text-lg font-semibold">
-            {geraet.name} wirklich ausschalten?
+            {T.dialog.titel(geraet.name)}
           </h2>
           <p id="grundlast-text" className="mt-2 text-ink-secondary">
-            Es ist ein Grundlastgerät und läuft normalerweise dauerhaft.
+            {T.dialog.text}
           </p>
           {!bedienbar && (
-            <p className="mt-3 text-sm text-danger">Verbindung getrennt – Ausschalten ist gerade nicht möglich.</p>
+            <p className="mt-3 text-sm text-danger">{T.dialog.offline}</p>
           )}
           <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
             <button
@@ -61,7 +62,7 @@ export function GrundlastDialog({ geraet, bedienbar, onAbbrechen, onAusschalten 
               onClick={onAbbrechen}
               className="min-h-11 rounded-[10px] border border-border bg-surface px-4 font-medium text-ink"
             >
-              Abbrechen
+              {T.dialog.abbrechen}
             </button>
             <button
               type="button"
@@ -71,7 +72,7 @@ export function GrundlastDialog({ geraet, bedienbar, onAbbrechen, onAusschalten 
               }}
               className={`min-h-11 rounded-[10px] bg-danger px-4 font-medium text-danger-contrast ${bedienbar ? '' : 'opacity-55'}`}
             >
-              Ausschalten
+              {T.dialog.ausschalten}
             </button>
           </div>
         </div>

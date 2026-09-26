@@ -4,15 +4,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Meldung } from '@/client/hausReducer';
 import { useHaus } from '@/hooks/useHaus';
-import { Icon, type IconName } from './Icon';
+import { T } from '@/ui/texte';
+import { Symbol, type SymbolName } from './Symbol';
 
 export const MELDUNG_DAUER_MS = 4000;
 
-const SYMBOL: Record<Meldung['art'], { icon: IconName; farbe: string }> = {
-  plus: { icon: 'pfeil-hoch', farbe: 'text-delta-up' },
-  minus: { icon: 'pfeil-runter', farbe: 'text-delta-down' },
-  info: { icon: 'info', farbe: 'text-ink-secondary' },
-  fehler: { icon: 'warnung', farbe: 'text-danger' },
+const SYMBOL: Record<Meldung['art'], { symbol: SymbolName; farbe: string }> = {
+  plus: { symbol: 'pfeil-hoch', farbe: 'text-delta-up' },
+  minus: { symbol: 'pfeil-runter', farbe: 'text-delta-down' },
+  info: { symbol: 'info', farbe: 'text-ink-secondary' },
+  fehler: { symbol: 'warnung', farbe: 'text-danger' },
 };
 
 function Toast({ meldung, onSchliessen }: { meldung: Meldung; onSchliessen: () => void }) {
@@ -40,7 +41,7 @@ function Toast({ meldung, onSchliessen }: { meldung: Meldung; onSchliessen: () =
       onBlur={() => setPausiert(false)}
       className="toast-ein pointer-events-auto flex items-center gap-3 rounded-2xl border border-border bg-surface-raised py-1 pr-1 pl-4 text-sm text-ink ebene-2"
     >
-      <Icon name={s.icon} groesse={20} className={`shrink-0 ${s.farbe}`} />
+      <Symbol name={s.symbol} groesse={20} className={`shrink-0 ${s.farbe}`} />
       <p className="zahlen min-w-0 flex-1 py-2">
         {meldung.delta && <span className={`font-semibold ${s.farbe}`}>{meldung.delta}</span>}
         {meldung.delta && ' · '}
@@ -51,8 +52,8 @@ function Toast({ meldung, onSchliessen }: { meldung: Meldung; onSchliessen: () =
         onClick={onSchliessen}
         className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:text-ink"
       >
-        <Icon name="schliessen" groesse={16} />
-        <span className="sr-only">Meldung schließen</span>
+        <Symbol name="schliessen" groesse={16} />
+        <span className="sr-only">{T.toast.schliessen}</span>
       </button>
     </li>
   );
@@ -74,7 +75,7 @@ export function Meldungen({ ueberBanner }: { ueberBanner: boolean }) {
   }, [meldungen, meldungEntfernen]);
 
   return (
-    <section aria-label="Meldungen">
+    <section aria-label={T.toast.liste}>
       <ol
         className={`pointer-events-none fixed inset-x-0 z-30 mx-auto flex w-[min(100%-32px,380px)] flex-col gap-2 md:right-4 md:left-auto md:mx-0 ${
           ueberBanner ? 'bottom-[calc(96px+env(safe-area-inset-bottom))] min-[480px]:bottom-[calc(80px+env(safe-area-inset-bottom))]' : 'bottom-[calc(16px+env(safe-area-inset-bottom))]'

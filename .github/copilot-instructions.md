@@ -1,189 +1,93 @@
-# 🤖 Copilot Instructions
+# Hinweise für KI-Assistenten (IoT-Haus 2.0)
 
-<!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
+IoT-Haus ist ein simuliertes Smart Home: 28 Geräte in 6 Räumen, Live-Verbrauch in W und €, Szenen, Grundlastschutz, Auto-Aus.
+Ein Node-Server hält den Zustand autoritativ, verteilt ihn per WebSocket an alle Browser und speichert ihn retained im
+eingebetteten Mosquitto. Alles läuft in einem Container. Sprache von UI, Doku, Commits und Fachbezeichnern: **Deutsch**.
 
-This is a **Smart Home Control Application** built with Next.js and TypeScript that manages light states in a 2-story house via MQTT with real-time WebSocket communication.
+## Stack
 
-## 🏗️ Project Context
+Next.js 15.5 (App Router), React 19.1, TypeScript strict, Tailwind 4, `ws`, `mqtt` (mqtt.js), Mosquitto, supervisord,
+Node 22 Alpine. Tests: Vitest 5, jsdom, Testing Library, axe-core, aedes (In-Process-Broker). Keine weiteren Bibliotheken ohne Grund
+(Next/React-Versionen sind sicherheitsgeprüft und werden nicht nebenbei angehoben).
 
-- **Application Type**: Single Page Application (SPA) for smart home control
-- **Architecture**: Next.js with TypeScript, WebSocket MQTT Proxy, containerized MQTT broker
-- **House Layout**: 2 floors, 2 rooms per floor (total 4 rooms)
-- **Deployment**: Fully containerized with Docker, automated CI/CD via GitHub Actions
-- **Distribution**: Multi-platform Docker images on GitHub Container Registry (GHCR)
-
-## ✨ Key Features
-
-- **🏠 Real-time House Visualization**: SVG-based interactive house representation
-- **💡 Light Control**: Toggle switches with WebSocket-based state synchronization
-- **🔌 WebSocket MQTT Proxy**: Integrated proxy server for browser-MQTT communication
-- **📡 MQTT Integration**: Real-time bidirectional communication via containerized Mosquitto broker
-- **👥 Multi-user Support**: Concurrent access with automatic state synchronization
-- **📱 Responsive Design**: Optimized for desktop and mobile devices
-- **🐳 Container-Ready**: Single-port deployment with integrated services
-
-## 🛠️ Technology Stack
-
-### Frontend
-- **Next.js 15** with App Router
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
-- **React Hooks** for state management
-
-### Backend & Infrastructure
-- **Node.js** custom server with WebSocket proxy
-- **Mosquitto MQTT Broker** (containerized)
-- **WebSocket** for real-time communication
-- **Docker** multi-stage builds
-- **Supervisor** for process management
-
-### DevOps & CI/CD
-- **GitHub Actions** for automated builds
-- **GitHub Container Registry (GHCR)** for image distribution
-- **Multi-platform builds** (linux/amd64, linux/arm64)
-- **Automated releases** with semantic versioning
-
-## 🏛️ Architecture Overview
+## Code-Struktur
 
 ```
-🌍 Internet → Port 3000 → 🐳 Docker Container
-                         ├── 📱 Next.js App (HTTP/HTTPS)
-                         ├── 🔌 WebSocket Proxy (WS/WSS)
-                         └── 📡 MQTT Broker (internal)
+src/domain/      reines TypeScript, von Server UND Browser genutzt
+  katalog.ts     RAEUME, GERAETE (einzige Quelle für IDs, Leistungen, Grundlast, Auto-Aus)
+  szenen.ts      SZENEN, szenenZiele
+  verbrauch.ts   Haus-/Raumverbrauch, Standby, Laststufe, Kosten
+  energie.ts     Tagesintegration, Mitternacht Europe/Berlin
+  befehle.ts     pruefeBefehl, befehlsZiele, wendeAn, ausgangszustand
+  protokoll.ts   Befehl, ServerNachricht, FehlerCode, MAX_NACHRICHT_BYTES (Vertrag Server ↔ Client)
+  format.ts      de-DE-Formatierer (Rundung nur hier)
+server/          Node-Server (TypeScript, per tsc nach dist/ kompiliert)
+  index.ts       Einstieg: Env, Next, Signale
+  app.ts         HTTP, /api/health, WebSocket-Upgrade, Verdrahtung
+  zustandsdienst.ts  Zustand, fuehreAus, Energie-Takt, Auto-Aus-Timer
+  mqtt-speicher.ts   einziger MQTT-Client: Restore, retained Publish
+  ws-verbindungen.ts Parsen, Fehlerantworten, Broadcast, Heartbeat
+  ursprung.ts, konfig.ts, version.ts, log.ts
+src/client/      framework-frei: verbindung.ts (WS, Backoff), hausReducer.ts (Client-Zustand)
+src/hooks/       React-Hooks (useHaus = HausProvider, useTheme, useHochzaehlen, useRestzeit, …)
+src/components/  React-Komponenten, eine je Datei nach Architektur §5.1 (App, Kopfbereich, Zaehler, Szenenleiste,
+                 Hausansicht, RaumFlaeche, Raeume, Raumkarte, GeraeteZeile, Schalter, GrundlastDialog, LiveRegion, …)
+src/ui/          texte.ts (alle UI-Texte), farbtokens.ts (hell/dunkel), themeSkript.ts
+src/app/         Next-Layout und Seite (rendert nur <App />)
+tests/           integration/ (echte ws-Clients + aedes), architektur/ (Regeln, Kontraste), fixtures/
+scripts/         dev-broker.mjs, pruefe-js-budget.mjs, smoke-container.mjs, warte-healthy.sh
+docker/          mosquitto.conf, supervisord.conf, start.sh
 ```
 
-## 📁 Key Components
+Vollständige Entscheidungen: `_bmad-output/planning-artifacts/architecture.md`. Protokoll und Topics: `API.md`.
 
-### Frontend Components
-- **`HouseVisualization.tsx`**: SVG-based house representation with interactive rooms
-- **`ControlPanel.tsx`**: Light control interface with connection status
-- **`RoomComponent.tsx`**: Individual room components with click handlers
+## Regeln (werden durch Tests, Lint und CI erzwungen)
 
-### Hooks & State Management
-- **`useMqtt.ts`**: Main MQTT hook with environment-based switching
-- **`useWebSocketMqtt.ts`**: WebSocket MQTT client implementation
-- **`useMockMqtt.ts`**: Mock implementation for testing
+- **Domäne ist rein:** `src/domain/` importiert nichts außerhalb von sich selbst (kein React, Next, Node-Modul, `@/`-Alias).
+  `server/` importiert `../src/domain/…`, nie `src/components` oder `src/client`.
+- **Geräte-IDs nur in `src/domain/`.** Namen, Leistungen und IDs kommen immer aus dem Katalog; nirgends sonst als Literal.
+- **Ein Änderungspfad:** Jede Zustandsänderung (Gerät, Szene, Raum, Auto-Aus) läuft durch `Zustandsdienst.fuehreAus` bzw. dessen
+  internen `aendere`-Pfad. Eine Änderung erzeugt genau eine `aenderung`-Nachricht.
+- **Browser sprechen kein MQTT** und speichern keinen Gerätezustand. Einziger `localStorage`-Schlüssel: `iot-haus.theme`.
+- **Protokoll:** nur die drei Befehle `schalten`, `szene`, `raumAus`; neue Nachrichtentypen nur mit Änderung von `protokoll.ts`,
+  `API.md` und Architekturdokument. Feldnamen deutsch camelCase, Diskriminator `typ`.
+- **Formate:** Zeit als ms seit Epoch, Datum `YYYY-MM-DD` (Berlin), Energie in Wh ungerundet; gerundet wird nur beim Anzeigen.
+- **Texte:** Alle UI-Texte (Microcopy) stehen in `src/ui/texte.ts`, Zahlen immer über `src/domain/format.ts`. Zwischen Zahl und
+  Einheit steht U+202F (schmales geschütztes Leerzeichen), Auslassung „…“ = U+2026, Minus = U+2212.
+- **Server-Limits nicht aufweichen:** 4 KB fachlich / 64 KiB hart (Close 1009), 100 Befehle Vorrat + 20/s je Verbindung
+  (`ZU_VIELE_BEFEHLE`), max. 100 Verbindungen, 1 MB Sendepuffer, optionale Host-Allowlist `ERLAUBTE_HOSTS`.
+- **Persistenz:** Gerätezustände sofort bei jeder Änderung, Tagesenergie nur im 60-s-Takt und bei SIGTERM.
+- **Benennung:** Fachbegriffe deutsch ohne Umlaute in Bezeichnern (`geraet`, `kueche`, `hausverbrauch`); Komponenten `PascalCase.tsx`,
+  Hooks `useXyz`, Tests daneben als `*.test.ts(x)`.
+- **Kein `console.*`** im Client und Server außer `console.error`; Serverlogs nur über `server/log.ts`
+  (eine Zeile, `schluessel=wert`, keine Nutzdaten).
+- **Zeit injizieren:** zeitabhängiger Code bekommt `jetzt` als Parameter bzw. Funktion (Tests mit Fake-Timern).
+- **Barrierefreiheit:** Schalter mit `role="switch"`, sichtbarer Fokus, 44-px-Trefferflächen, Live-Region für Ansagen,
+  `prefers-reduced-motion` beachten, keine Zoomsperre. axe muss in Hell und Dunkel 0 Verstöße melden; neue Farbpaare in
+  `src/ui/farbtokens.ts` eintragen (Kontrasttest).
+- **Image-Härtung nicht zurückdrehen:** Node 22, `USER 1000:1000`, kein npm/npx/corepack/yarn/apk/wget/nc/curl im Runtime-Image,
+  Healthcheck per `node -e fetch(…)`.
+- **Replik:** Der Zustand lebt im Pod/Container; nie mehr als eine Instanz betreiben.
 
-### Server & Infrastructure
-- **`server.js`**: Custom Node.js server with WebSocket MQTT proxy
-- **`docker/`**: Container configuration (Mosquitto, Supervisor)
-- **`.github/workflows/`**: CI/CD pipeline definitions
+## Befehle
 
-## 🔧 Development Guidelines
-
-### Code Style & Standards
-- **TypeScript**: Use strict typing, avoid `any` types
-- **ESLint**: Follow configured rules for consistency
-- **Component Structure**: Functional components with hooks
-- **Responsive Design**: Mobile-first approach with Tailwind breakpoints
-
-### MQTT Communication
-- **Message Format**: Strict JSON schema with validation
-- **Topic Convention**: `smarthome/{roomId}/light`
-- **Error Handling**: Graceful fallbacks and retry mechanisms
-- **Real-time Sync**: Ensure state consistency across clients
-
-### Docker & Deployment
-- **Single Port**: All services through port 3000
-- **Multi-stage Builds**: Optimize image size and security
-- **Environment Variables**: Use for configuration flexibility
-- **Health Checks**: Implement service monitoring
-
-### CI/CD Best Practices
-- **Automated Testing**: Build validation on all PRs
-- **Multi-platform**: Support AMD64 and ARM64 architectures
-- **Semantic Versioning**: Use conventional commit messages
-- **Container Security**: Regular dependency updates
-
-## 📡 MQTT Integration Details
-
-### Topic Structure
-```typescript
-interface LightState {
-  roomId: string;      // "room_1_left", "room_1_right", etc.
-  isOn: boolean;       // Light on/off state
-  timestamp: number;   // Unix timestamp
-}
+```bash
+npm ci
+npm run dev:broker   # Terminal 1: aedes auf 127.0.0.1:1883
+npm run dev          # Terminal 2: http://localhost:3000
+npm run lint         # 0 Warnungen
+npm run typecheck
+npm test             # bzw. npm test -- --coverage (≥ 90 % Domäne + Zustandsdienst)
+npm run build        # next build + tsc -p tsconfig.server.json
 ```
 
-### WebSocket Messages
-```typescript
-// Subscribe to topic
-{ type: "subscribe", topic: "smarthome/room_1_left/light" }
+## CI/CD
 
-// Publish state change
-{ type: "publish", topic: "smarthome/room_1_left/light", payload: "..." }
+Ein Workflow `.github/workflows/ci-release.yml`: `qualitaet` (Lint, Typecheck, Tests, Build, JS-Budget ≤ 200 kB, Audit) →
+`container` (Härtung, healthy ≤ 60 s per `scripts/warte-healthy.sh`, Rauchtest, Persistenz nach Neustart) → `image` (nur `main`: `:latest`, `:sha-<kurz>`,
+amd64 + arm64) → `release` (nur `main`, idempotent: fehlt das GitHub Release zur Version aus `package.json`, werden `:<version>`, Tag
+`v<version>` und Release mit `.github/release-hinweise/v<version>.md` einzeln angelegt, soweit sie fehlen). Push auf `main` ist Produktion. Details: `GITHUB-ACTIONS.md`.
 
-// Receive state update
-{ type: "message", topic: "...", payload: "...", timestamp: 123456 }
-```
+## Commits
 
-### Error Handling
-- **Connection Recovery**: Auto-reconnect with exponential backoff
-- **Message Validation**: Strict payload validation
-- **Fallback States**: Graceful degradation when MQTT unavailable
-
-## 🐳 Container Architecture
-
-### Services
-1. **Mosquitto MQTT Broker**: Internal on 127.0.0.1:1883
-2. **Next.js Application**: Web server on port 3000
-3. **WebSocket Proxy**: MQTT-WebSocket bridge on ws://localhost:3000/mqtt
-
-### Environment Variables
-- `NODE_ENV`: production/development
-- `NEXT_PUBLIC_MQTT_BROKER_URL`: Frontend WebSocket URL
-- `MQTT_BROKER_HOST`: Server-side MQTT host
-- `MQTT_BROKER_PORT`: Server-side MQTT port
-
-## 🎯 Development Focus Areas
-
-### Performance Optimization
-- **WebSocket Connection Pooling**: Efficient connection management
-- **State Update Batching**: Reduce unnecessary re-renders
-- **SVG Optimization**: Minimize DOM manipulation
-- **Docker Layer Caching**: Optimize build times
-
-### User Experience
-- **Real-time Feedback**: Immediate visual state updates
-- **Connection Status**: Clear indication of system health
-- **Error Messages**: User-friendly error communication
-- **Accessibility**: ARIA labels and keyboard navigation
-
-### Scalability Considerations
-- **Room Configuration**: Easy addition of new rooms/floors
-- **MQTT Topic Scaling**: Structured topic hierarchy
-- **Container Resources**: Efficient resource utilization
-- **Multi-instance Support**: Horizontal scaling capabilities
-
-## 🔒 Security Guidelines
-
-### Container Security
-- **Non-root User**: Run services as non-privileged user
-- **Minimal Base Images**: Use Alpine Linux for smaller attack surface
-- **Dependency Scanning**: Regular vulnerability assessments
-- **Resource Limits**: Prevent resource exhaustion
-
-### Application Security
-- **Input Validation**: Sanitize all user inputs
-- **MQTT Authentication**: Consider auth for production deployments
-- **Rate Limiting**: Prevent message flooding
-- **CORS Configuration**: Proper cross-origin handling
-
-## 📊 Monitoring & Debugging
-
-### Logging Strategy
-- **Structured Logging**: JSON format for better parsing
-- **Log Levels**: Appropriate use of info, warn, error
-- **Container Logs**: Accessible via Docker/Docker Compose
-- **WebSocket Events**: Debug connection issues
-
-### Health Checks
-- **HTTP Endpoint**: Basic health check on port 3000
-- **MQTT Connectivity**: Internal broker connection status
-- **WebSocket Status**: Connection health monitoring
-- **Resource Usage**: Memory and CPU utilization
-
----
-
-🏠 **Smart Home Control System** - Built with Next.js, TypeScript, MQTT, and Docker for modern smart home automation
+Conventional Commits mit deutscher Beschreibung, z. B. `feat(server): Auto-Aus nach Neustart fortsetzen`.

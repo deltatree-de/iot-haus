@@ -1,71 +1,65 @@
-# iot-haus – Entwicklungsleitfaden
-
-**Stand:** 2026-09-26
+# IoT-Haus 2.0 – Entwicklung
 
 ## Voraussetzungen
 
-- Node.js 22 (wie im Container; `@types/node` ist noch `^20`)
-- npm (Lockfile `package-lock.json` → `npm ci`)
-- Ein MQTT-Broker auf `localhost:1883` für `npm run dev` (z. B. `brew install mosquitto && brew services start mosquitto`)
-  **oder** Docker, um alles im Container zu betreiben.
+Node.js 22 und npm. Docker nur für Container-Tests.
 
-## Einrichtung
+## Starten
 
 ```bash
 npm ci
+npm run dev:broker     # Terminal 1: aedes-Broker auf 127.0.0.1:1883 (Zustand nur im Speicher)
+npm run dev            # Terminal 2: tsc für server/, dann node dist/server/index.js im Next-Dev-Modus
 ```
 
-## Lokal starten
+App: <http://localhost:3000>. Änderungen an `src/` lädt Next neu (HMR). Änderungen an `server/` oder `src/domain/`, die der Server nutzt,
+brauchen einen Neustart von `npm run dev`. Nach einem Neustart des Entwicklungsbrokers beginnt das Haus im Ausgangszustand.
 
-```bash
-# Variante A: Dev-Server (Next.js im Dev-Modus + WS-Proxy), benötigt lokalen Mosquitto
-npm run dev                 # = node server.js, NODE_ENV nicht gesetzt → dev
-# → http://localhost:3000, WebSocket ws://localhost:3000/mqtt
+Alternativ läuft alles im Container: `npm run compose:up`.
 
-# Variante B: kompletter Container (Broker inklusive)
-npm run compose:up          # docker-compose up -d --build
-npm run compose:logs
-```
+## Scripts
+
+| Script | Befehl |
+|---|---|
+| `dev` | `tsc -p tsconfig.server.json && node dist/server/index.js` |
+| `dev:broker` | `node scripts/dev-broker.mjs` |
+| `build` | `next build && tsc -p tsconfig.server.json` |
+| `start` | `node dist/server/index.js` (mit `NODE_ENV=production` für den Produktionsmodus) |
+| `lint` | `eslint . --max-warnings=0` |
+| `typecheck` | `tsc --noEmit` |
+| `test` / `test:watch` | `vitest run` / `vitest` |
+| `docker:*`, `compose:*` | Image bauen und starten, siehe [DOCKER-SETUP.md](../DOCKER-SETUP.md) |
 
 ## Umgebungsvariablen
 
-| Variable | Default | Wirkung |
-|---|---|---|
-| `PORT` | 3000 | HTTP/WS-Port (`server.js:9`) |
-| `HOSTNAME` | `0.0.0.0` | Bind-Adresse |
-| `MQTT_BROKER_HOST` / `MQTT_BROKER_PORT` | `localhost` / `1883` | Broker für den Proxy |
-| `NEXT_PUBLIC_MQTT_BROKER_URL` | nicht gesetzt / `auto` | wird **zur Build-Zeit** eingebettet; nur Werte ohne `localhost` und ≠ `auto` überschreiben die automatische URL (`page.tsx:100-103`). Die Laufzeit-Angabe in `supervisord.conf:28` ist wirkungslos. |
+`PORT` (3000), `HOSTNAME` (0.0.0.0), `MQTT_BROKER_HOST` (127.0.0.1), `MQTT_BROKER_PORT` (1883), `STROMPREIS_EUR_PRO_KWH` (0.35),
+`ERLAUBTE_HOSTS` (leer = keine Host-Prüfung; lokal ggf. `localhost`), `NODE_ENV` (≠ `production` → Dev-Modus).
 
-## Build und Prüfungen
-
-```bash
-npm run build               # next build (lintet nur src/, bricht nicht bei Fehlern in server.js/test-*.js ab)
-npm run lint                # eslint – aktuell 9 Fehler (require() in server.js und test-*.js), 7 Warnungen
-npx tsc --noEmit            # aktuell fehlerfrei
-```
+UI-Texte stehen zentral in `src/ui/texte.ts`; Zahlen immer über `src/domain/format.ts` formatieren (Einheit mit U+202F).
 
 ## Tests
 
-Es gibt **kein** `npm test`. Manuelle Integrationsskripte (Server muss laufen):
-
 ```bash
-node test-container-mqtt.js
-node test-container-mqtt-detailed.js
-node test-container-publish.js
-MQTT_URL=ws://localhost:3000/mqtt node test-multi-device.js
+npm test                   # alle Tests
+npm test -- --coverage     # mit Abdeckung (Schwelle 90 % Zeilen: src/domain/**, server/zustandsdienst.ts)
+npx vitest run server      # nur ein Bereich
 ```
 
-Sie prüfen per Log-Ausgabe, nicht per Assertion/Exit-Code; für CI ungeeignet.
+| Ebene | Ort |
+|---|---|
+| Domäne | `src/domain/*.test.ts` (Katalog, Summen, Laststufen, Szenen, Befehlsprüfung, Energie inkl. Zeitumstellung, Formatierer) |
+| Server | `server/*.test.ts` (Zustandsdienst mit Fake-Timern, Konfiguration) |
+| Client | `src/client/*.test.ts` (Reducer, Verbindung) |
+| Komponenten | `src/components/App.test.tsx` (jsdom, Testing Library, axe hell/dunkel) |
+| Integration | `tests/integration/*.test.ts` (echter Server + aedes + `ws`-Clients: Snapshot, Mehrclient, Fehler, Origin, Health, Persistenz, Broker-Ausfall) |
+| Architektur | `tests/architektur/*.test.ts` (Geräte-IDs nur in der Domäne, Domäne ohne Fremdimporte, keine englischen Resttexte, kein `console.log`, Dockerfile-Härtung, Kontraste) |
 
-## Debugging-Hinweise
+Komponententests setzen jsdom per Docblock `// @vitest-environment jsdom`; Standard ist `node`.
 
-- Browser-Konsole ist mit Emoji-Logs geflutet (`page.tsx`, `useWebSocketMqtt.ts`, `ControlPanel.tsx`, `RoomComponent.tsx`), der
-  Server loggt jede Nachricht (`server.js:59`, `:72`, `:138`).
-- Zustand zurücksetzen: `localStorage.removeItem('smart-home-state')` in der Browser-Konsole.
-- Verbindungsanzeige ist nicht verlässlich (Mock meldet nach 1 s "Verbunden"), echten Zustand im Netzwerk-Tab (WS) prüfen.
+## Vor dem Pull Request
 
-## Konventionen (beobachtet)
+```bash
+npm run lint && npm run typecheck && npm test && npm run build
+```
 
-- TypeScript strict, Funktionskomponenten, Pfadalias `@/`.
-- UI-Texte deutsch, Code/Kommentare überwiegend englisch; Commit-Messages zuletzt deutsch mit Conventional-Commit-Präfix.
-- Tailwind-Utilities direkt im JSX, keine CSS-Module.
+Regeln für Code und Struktur: [.github/copilot-instructions.md](../.github/copilot-instructions.md) und [contribution-guide.md](./contribution-guide.md).
