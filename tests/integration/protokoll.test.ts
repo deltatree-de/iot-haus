@@ -168,6 +168,16 @@ describe('Befehlsprüfung (FR-18)', () => {
     await c.warte((n) => n.typ === 'bestaetigt' && n.befehlId === 'danach');
   });
 
+  it('Ratenlimit gilt auch für ungültige Nachrichten; Dauerflut trennt (Review RR-01)', async () => {
+    const c = await client();
+    for (let i = 0; i < 350; i++) c.sende('{kaputt');
+    await warteBis(() => c.geschlossen !== null, 5000);
+    expect(c.geschlossen?.code).toBe(1008);
+    const codes = c.nachrichten.filter((n) => n.typ === 'fehler').map((n) => (n.typ === 'fehler' ? n.code : ''));
+    expect(codes.slice(0, 100).every((k) => k === 'UNGUELTIGES_JSON')).toBe(true);
+    expect(codes.slice(100).every((k) => k === 'ZU_VIELE_BEFEHLE')).toBe(true);
+  });
+
   it('Fehler nennt die Befehlskennung', async () => {
     const c = await client();
     c.sende({ typ: 'szene', id: 'f1', szene: 'party' });

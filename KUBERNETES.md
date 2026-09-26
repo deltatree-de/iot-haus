@@ -195,7 +195,7 @@ nicht aus; maßgeblich sind die Probes. Probes kommen über die Pod-IP und nicht
   Andere Ingress-Controller müssen eines von beiden ebenfalls liefern, sonst antwortet der Server mit 403.
 - `ERLAUBTE_HOSTS` (im Beispiel `haus.example.de`) lässt WebSocket-Verbindungen nur zu, wenn `Host` und – falls gesetzt –
   `X-Forwarded-Host` in der Liste stehen (Schutz gegen DNS-Rebinding). Wird der Pod zusätzlich über einen anderen Namen
-  erreicht (z. B. `kubectl port-forward` → `localhost`), diesen Namen ergänzen: `haus.example.de,localhost`.
+  erreicht (z. B. `kubectl port-forward` → `localhost`), diesen Namen ergänzen: `haus.example.de,localhost`. Reicht ein Ingress-Controller `Host` nicht durch, sondern nur `X-Forwarded-Host`, muss auch der interne Service-Name (z. B. `iot-haus`) in der Liste stehen.
 - Je Pod gelten die Server-Limits: höchstens 100 gleichzeitige WebSocket-Verbindungen, 20 Befehle pro Sekunde je Verbindung
   (Vorrat 100); Details in [API.md](API.md#22-rahmenbedingungen).
 

@@ -226,3 +226,86 @@ Der Stakeholder ist nicht erreichbar. Diese Punkte hat das Team selbst entschied
 | CR-17 | Teamentscheidung | Echte `apple-touch-icon.png` (180 × 180) + `icon.svg` + Favicon im neuen Design: UX-30 verlangt ein funktionierendes Icon, der 404 ist behoben, das Asset ist 8 KB groß. K-12 wollte nur die Bild-Pipeline vermeiden – die Icons sind statische Dateien. |
 
 Nachweis nach Umsetzung: Lint 0, Typecheck 0, 258 Tests grün (Abdeckung Domäne 100 % Zeilen), Build 118 kB First Load JS, Docker-Image lokal: Härtung ok, healthy nach 5 s, Rauchtest inkl. Security-Header, Persistenz nach Neustart, keine „Saving“-Logflut; E2E mit zwei Browsern ohne Konsolenfehler.
+
+## Re-Review (2026-09-26)
+
+- **Ziel:** Fixes aus Commit 305ef39 prüfen und den neuen Diff `git diff e284460..305ef39 -- . ':!_bmad-output' ':!package-lock.json' ':!docs/abnahme'` (83 Dateien) auf Regressionen untersuchen (Blind Hunter + Edge Case Hunter).
+- **Statische Prüfungen:** `npm run lint` 0, `npm run typecheck` 0, `npm test` 258/258 grün.
+- **Live gegen :3100:**
+  - 200 gültige No-op-Befehle am Stück ergeben 100 × `bestaetigt` und 100 × `ZU_VIELE_BEFEHLE`. 50 × ungültiges JSON ergeben 50 × `UNGUELTIGES_JSON`, ohne Ratenlimit.
+  - Security-Header vorhanden, kein `X-Powered-By`.
+  - Der Zustand wurde nicht verändert (nur Schaltbefehle auf den aktuellen Zustand).
+
+### Urteile je Befund
+
+| ID | Urteil | Begründung |
+|---|---|---|
+| CR-01 | bestätigt behoben | Token-Bucket, Grenze für den Sendepuffer (1 MB → `terminate`), max. 100 Verbindungen, Energie nur im Takt. Live nachgestellt. Rest siehe RR-01/RR-02 (niedrig). |
+| CR-02 | bestätigt behoben | Early-Exit über `gh release view`, Image, Tag und Release werden einzeln idempotent ergänzt. Unter `set -euo pipefail` korrekt: Die Befehle stehen in `if`-Bedingungen, ein Fehler von `ls-remote` in `[ -z "$(…)" ]` endet spätestens beim `git push`, also laut. Rest siehe RR-03 (niedrig). |
+| CR-03 | bestätigt behoben | API.md, DOCKER-SETUP, KUBERNETES, GITHUB-ACTIONS, README und copilot-instructions sind auf Stand 2.0. Alte Topics erscheinen nur noch als Upgrade-Hinweis. Die Doku zu Limits und Close-Codes stimmt mit dem Code überein (Ausnahme RR-04). |
+| CR-04 | bestätigt behoben | `docs/abnahme-2.0.md` ist vorhanden. Prüfungen, die echte Geräte brauchen, sind nachvollziehbar als „nach Deploy“ offen markiert. |
+| CR-05 | bestätigt behoben | `next.config.mjs` ist reines ESM, liest `package.json` per `readFileSync` und wird ins Image kopiert (`COPY package.json next.config.mjs ./`, Architekturtest). Der Rauchtest prüft `X-Frame-Options` und das fehlende `X-Powered-By`. |
+| CR-06 | bestätigt behoben | `aenderung`/`energie` werden bei Versionskonflikt ignoriert, `name()`/`geraetMitRaum()` sind defensiv, unbekannte Ursachen erzeugen keinen Toast, die `Fehlergrenze` umschließt die App. Hinweis: Ein Snapshot eines künftigen Servers, der ein Gerät *entfernt*, wird weiter übernommen. `anzeigeAn`/`hausverbrauch` (`zustand[id].an`) werfen dann, und die Fehlergrenze zeigt „Neu laden“. Das Ergebnis entspricht dem Banner, deshalb kein Befund. |
+| CR-07 | bestätigt behoben | Dateischnitt nach K-06, Katalog `src/ui/texte.ts` wird überall genutzt (keine hartkodierten Sätze mehr in `src/components`/`src/hooks` gefunden), U+202F in `format.ts`, Screenreader-Varianten vorhanden. |
+| CR-08 | bestätigt (Teamentscheidung) | 1009 über 64 KiB ist in API.md §2.2 dokumentiert. |
+| CR-09 | bestätigt behoben | `scripts/warte-healthy.sh` (ausführbar, `set -eu`, Log + `exit 1`) wird bei Start und Neustart aufgerufen. |
+| CR-10 | bestätigt behoben | `hostErlaubt` verlangt, dass *alle* vorhandenen Werte (Host und XFH) in der Liste stehen, und lehnt ab, wenn keiner vorhanden ist. Ein gefälschter XFH kann die Liste nicht umgehen. Portangaben in der Liste schlagen geschlossen fehl. Standard ohne Liste bleibt offen (Teamentscheidung, dokumentiert). |
+| CR-11 | bestätigt behoben | `Number.isFinite(wh)`, `seit < 0` werden verworfen, `seit` in der Zukunft wird im Konstruktor auf jetzt begrenzt. Getestet. |
+| CR-12 | bestätigt behoben | `von = max(energieStand, jetzt − 120 s)`. Der Takt (≤ 60 s bzw. bis Mitternacht) liegt immer darunter, deshalb geht im Normalbetrieb kein Verbrauch verloren. Der Tageswechsel in `integriere` ist unverändert korrekt. |
+| CR-13 | bestätigt behoben | Die sr-only-Beschreibung enthält „noch m Minuten s Sekunden“. Minuten und Badge werden aus `autoAusS` berechnet. |
+| CR-14 | bestätigt (Teamentscheidung) | `order-last` bei nicht interaktivem Inhalt. Fokusreihenfolge und Überschriftenhierarchie bleiben logisch. Akzeptiert. |
+| CR-15 | bestätigt behoben | Der Healthcheck nutzt `process.env.PORT`. |
+| CR-16 | bestätigt behoben | Die Release-Hinweise verlangen, dass alte Tabs einmal neu geladen werden. Der Banner kommt erst ab 2.0. |
+| CR-17 | bestätigt (Teamentscheidung) | Statische Icons (`icon.svg`, `apple-touch-icon.png` 7,8 KB). Das Arbeitsverzeichnis ist sauber. |
+
+**Nicht behoben: keiner.**
+
+### Neue Befunde
+
+#### RR-01 · niedrig · Ratenlimit greift nur für gültige Befehle, deshalb Log-Flut möglich
+- **Ort:** `server/ws-verbindungen.ts:114-125` (`darf()` erst nach `pruefeBefehl`), `:139` (`log.warn` je Fehlerantwort)
+- **Szenario (live gegen :3100 verifiziert):** 50 × ungültiges JSON ergeben 50 × `fehler`, ohne jede Drosselung. Ein LAN-Client ohne Origin sendet ungebremst Müll oder gedrosselte gültige Befehle. Jede Nachricht erzeugt eine `warn`-Logzeile auf stdout. Mit dem Docker-Standardtreiber `json-file` ohne Rotation wächst das Log auf der SD-Karte unbegrenzt. Der Speicher im Server bleibt dagegen begrenzt: Der Sendepuffer ist gedeckelt, und andere Nutzer sehen keine Toasts. Das Hauptziel von CR-01 ist also erreicht.
+- **Fix:**
+  - Den Token-Bucket auf *jede* eingehende Nachricht anwenden, also `darf()` vor der Größen- und JSON-Prüfung aufrufen.
+  - Bei dauerhaft leerem Vorrat (z. B. < −100) mit Close 1008 trennen.
+  - `ZU_VIELE_BEFEHLE` höchstens einmal je Sekunde und Verbindung loggen.
+
+#### RR-02 · niedrig · Token-Bucket nutzt die Wanduhr: Rückwärtssprung sperrt Verbindungen
+- **Ort:** `server/ws-verbindungen.ts:81,100-110`
+- **Szenario (am Code nachgerechnet):** Stellt NTP die Uhr um X s zurück, ergibt `jetzt − stand` einen negativen Wert. Der Vorrat sinkt dann auf `v − 20·X`, bei 1 h also etwa −72.000, und wird so gespeichert. Die Verbindung beantwortet danach rund X s lang jeden Befehl mit `ZU_VIELE_BEFEHLE`, und der Nutzer sieht nur „konnte nicht geschaltet werden“, bis er neu lädt.
+- **Fix:** Eine monotone Uhr verwenden (`performance.now()`) oder die verstrichene Zeit mit `Math.max(0, jetzt − stand)` begrenzen.
+
+#### RR-03 · niedrig · Teil-Wiederholung des Releases kann Versions-Image und Tag auf verschiedene Commits legen
+- **Ort:** `.github/workflows/ci-release.yml:213-220`
+- **Szenario:**
+  1. Lauf A erzeugt `:V` aus Digest A, danach scheitert `git push` des Tags.
+  2. Der nächste Push mit Commit B und unveränderter Version findet `:V` und überspringt es. Tag und Release entstehen dann auf B.
+  3. Das Image `:V` enthält Commit A, das Release zeigt auf B.
+  4. Umgekehrt gilt dasselbe, wenn der Tag bereits existiert und `:V` fehlt: `:V` wird aus dem aktuellen Digest B gebaut, der Tag zeigt auf A.
+- **Fix:**
+  - Existiert der Tag, das Versions-Image aus `:sha-$(git rev-parse --short "v$V")` erzeugen (dieses Tag schreibt der Image-Job bereits), nicht aus `$DIGEST`.
+  - Existiert `:V` schon, dessen Revision prüfen (Label `org.opencontainers.image.revision`) und bei Abweichung mit Fehler abbrechen.
+
+#### RR-04 · niedrig · Proxy-Doku: „oder X-Forwarded-Host“ passt nicht zu gesetztem `ERLAUBTE_HOSTS`
+- **Orte:**
+  - `README.md:140-143`
+  - `DOCKER-SETUP.md:144-146`
+  - `KUBERNETES.md:194-196`
+- **Szenario (per Unit-Test belegt, `konfig.test.ts`: `{host:'intern:3000','x-forwarded-host':'haus.local'}` → `false`):**
+  1. Die Doku sagt, der Proxy müsse `Host` durchreichen *oder* `X-Forwarded-Host` setzen, und empfiehlt zusätzlich `ERLAUBTE_HOSTS`.
+  2. Ein Proxy, der nur XFH setzt, schickt z. B. `Host: 127.0.0.1:3000` (nginx-Standard ist `$proxy_host`).
+  3. Mit `ERLAUBTE_HOSTS=haus.example.de` lehnt der Server dann jeden WebSocket mit 403 `grund=host` ab.
+- **Fix:** In allen drei Dokumenten ergänzen: Mit `ERLAUBTE_HOSTS` muss der Proxy `Host` durchreichen, oder der interne Upstream-Name (z. B. `127.0.0.1`) gehört mit in die Liste.
+
+### Ergebnis
+
+Alle 17 CR-Befunde sind bestätigt behoben bzw. als Teamentscheidung tragfähig. Neu sind 4 Befunde, alle **niedrig**. Es bleibt kein Befund der Schwere mittel oder höher. **Freigegeben** für den Merge auf main. RR-01 bis RR-04 als Folgepunkte umsetzen.
+
+### Umsetzung Re-Review (Amelia)
+
+| ID | Ergebnis | Umsetzung |
+|---|---|---|
+| RR-01 | behoben | Token-Bucket gilt für jede eingehende Nachricht (auch ungültige); über 200 abgelehnte Nachrichten in Folge → Close 1008; Warnzeilen je Verbindung höchstens alle 10 s mit Zähler `unterdrueckt`. Test in `protokoll.test.ts`. |
+| RR-02 | behoben | Token-Bucket nutzt `performance.now()` (monoton), vergangene Zeit ≥ 0. |
+| RR-03 | behoben | Existiert der Tag, wird das Versions-Image aus `:sha-<Tag-Commit>` erzeugt, sonst aus dem eben gebauten Digest; Tag wird vor dem Versions-Image gesetzt. |
+| RR-04 | behoben | README, DOCKER-SETUP, KUBERNETES: mit `ERLAUBTE_HOSTS` müssen Host **und** X-Forwarded-Host passen; interner Upstream-Name ggf. aufnehmen. |

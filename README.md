@@ -138,7 +138,7 @@ haus.example.de {
 - Wer Anmeldung per Cookie bevorzugt (z. B. Authelia oder oauth2-proxy als Forward-Auth), umgeht Browser-Eigenheiten bei Basic Auth
   und WebSockets.
 - Der Proxy muss den `Host`-Header durchreichen oder `X-Forwarded-Host` setzen. Sonst lehnt der Server den WebSocket wegen der
-  Origin-Prüfung mit 403 ab.
+  Origin-Prüfung mit 403 ab. Mit gesetztem `ERLAUBTE_HOSTS` gilt strenger: **beide** Werte müssen in der Liste stehen – reicht der Proxy `Host` nicht durch (Upstream-Name wie `iot-haus:3000`), diesen internen Namen ebenfalls in `ERLAUBTE_HOSTS` aufnehmen, sonst 403 (`grund=host`).
 - Läuft der Proxy auf demselben Host, den Port nur lokal veröffentlichen: `"127.0.0.1:3000:3000"`.
 - Zusätzlich `ERLAUBTE_HOSTS` auf die tatsächlich genutzten Namen setzen (z. B. `haus.example.de,haus.local`). Das schützt
   gegen DNS-Rebinding, also fremde Webseiten, die sich über einen manipulierten DNS-Namen Zugang zum Heimnetz-Server verschaffen.

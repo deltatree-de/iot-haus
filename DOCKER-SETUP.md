@@ -141,7 +141,7 @@ server {
 }
 ```
 
-- `Host` muss durchgereicht werden (oder `X-Forwarded-Host` gesetzt sein), sonst lehnt die Origin-Prüfung den WebSocket mit 403 ab.
+- `Host` muss durchgereicht werden (oder `X-Forwarded-Host` gesetzt sein), sonst lehnt die Origin-Prüfung den WebSocket mit 403 ab. Mit gesetztem `ERLAUBTE_HOSTS` gilt strenger: **beide** Werte müssen in der Liste stehen – reicht der Proxy `Host` nicht durch (Upstream-Name wie `iot-haus:3000`), diesen internen Namen ebenfalls in `ERLAUBTE_HOSTS` aufnehmen, sonst 403 (`grund=host`).
 - Den Container-Port dann nur lokal veröffentlichen: `ports: ["127.0.0.1:3000:3000"]`.
 - `ERLAUBTE_HOSTS` auf den öffentlichen Namen und ggf. lokale Namen setzen, z. B. `ERLAUBTE_HOSTS=haus.example.de,haus.local`.
 

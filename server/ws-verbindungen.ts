@@ -1,9 +1,10 @@
 // WebSocket-Schicht: Befehle prüfen, an den Zustandsdienst geben, Nachrichten verteilen (Architektur §3.5, §3.6).
 import type { IncomingMessage } from 'node:http';
+import { performance } from 'node:perf_hooks';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { pruefeBefehl } from '../src/domain/befehle';
-import { MAX_NACHRICHT_BYTES, type FehlerCode, type ServerNachricht } from '../src/domain/protokoll';
+import { BEFEHL_ID_MUSTER, MAX_NACHRICHT_BYTES, type FehlerCode, type ServerNachricht } from '../src/domain/protokoll';
 import type { Logger } from './log';
 import type { Zustandsdienst } from './zustandsdienst';
 
@@ -14,6 +15,10 @@ export const BEFEHLE_PRO_SEKUNDE = 20;
 /** Liest ein Client nicht mehr mit, wird er getrennt, bevor der Server-Speicher wächst. */
 export const MAX_PUFFER_BYTES = 1_000_000;
 export const MAX_VERBINDUNGEN = 100;
+/** Bleibt ein Client so viele Nachrichten in Folge über dem Limit, wird er getrennt (Review RR-01). */
+export const MAX_ABLEHNUNGEN_IN_FOLGE = 2 * BEFEHLE_VORRAT;
+/** Abgelehnte Nachrichten loggen wir je Verbindung höchstens alle 10 s (Review RR-01). */
+const LOG_PAUSE_MS = 10_000;
 
 const MELDUNGEN: Record<FehlerCode, string> = {
   UNGUELTIGES_JSON: 'Nachricht ist kein gültiges JSON.',
@@ -26,7 +31,26 @@ const MELDUNGEN: Record<FehlerCode, string> = {
   ZU_VIELE_BEFEHLE: 'Zu viele Befehle. Bitte kurz warten.',
 };
 
-type Lebendig = WebSocket & { lebendig?: boolean; vorrat?: number; stand?: number };
+/** Befehlskennung einer (kleinen) Nachricht, damit auch abgelehnte Befehle zugeordnet werden können. */
+function befehlIdAus(puffer: Buffer): string | null {
+  if (puffer.byteLength > MAX_NACHRICHT_BYTES) return null;
+  try {
+    const json: unknown = JSON.parse(puffer.toString('utf8'));
+    const id = typeof json === 'object' && json !== null ? (json as { id?: unknown }).id : undefined;
+    return typeof id === 'string' && BEFEHL_ID_MUSTER.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+type Lebendig = WebSocket & {
+  lebendig?: boolean;
+  vorrat?: number;
+  stand?: number;
+  ablehnungen?: number;
+  logBis?: number;
+  unterdrueckt?: number;
+};
 
 export class WsVerbindungen {
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 65_536 });
@@ -78,7 +102,8 @@ export class WsVerbindungen {
   private verbunden(ws: Lebendig): void {
     ws.lebendig = true;
     ws.vorrat = BEFEHLE_VORRAT;
-    ws.stand = Date.now();
+    ws.stand = performance.now();
+    ws.ablehnungen = 0;
     ws.on('pong', () => {
       ws.lebendig = true;
     });
@@ -96,10 +121,14 @@ export class WsVerbindungen {
     else ws.close(1013, 'nicht bereit');
   }
 
-  /** Token-Bucket: true, wenn der Befehl verarbeitet werden darf. */
+  /**
+   * Token-Bucket über alle eingehenden Nachrichten (auch ungültige). Monotone Uhr, damit ein
+   * Zurückstellen der Systemzeit nicht sperrt (Review RR-02).
+   */
   private darf(ws: Lebendig): boolean {
-    const jetzt = Date.now();
-    const vorrat = Math.min(BEFEHLE_VORRAT, (ws.vorrat ?? BEFEHLE_VORRAT) + ((jetzt - (ws.stand ?? jetzt)) / 1000) * BEFEHLE_PRO_SEKUNDE);
+    const jetzt = performance.now();
+    const vergangen = Math.max(0, jetzt - (ws.stand ?? jetzt));
+    const vorrat = Math.min(BEFEHLE_VORRAT, (ws.vorrat ?? BEFEHLE_VORRAT) + (vergangen / 1000) * BEFEHLE_PRO_SEKUNDE);
     ws.stand = jetzt;
     if (vorrat < 1) {
       ws.vorrat = vorrat;
@@ -111,6 +140,16 @@ export class WsVerbindungen {
 
   private nachricht(ws: Lebendig, daten: RawData, istBinaer: boolean): void {
     const puffer = Array.isArray(daten) ? Buffer.concat(daten) : Buffer.from(daten as ArrayBuffer);
+    if (!this.darf(ws)) {
+      ws.ablehnungen = (ws.ablehnungen ?? 0) + 1;
+      if (ws.ablehnungen > MAX_ABLEHNUNGEN_IN_FOLGE) {
+        this.log.warn('ws_getrennt', { grund: 'zu_viele_nachrichten' });
+        ws.close(1008, 'zu viele Nachrichten');
+        return;
+      }
+      return this.fehler(ws, 'ZU_VIELE_BEFEHLE', befehlIdAus(puffer));
+    }
+    ws.ablehnungen = 0;
     if (puffer.byteLength > MAX_NACHRICHT_BYTES) return this.fehler(ws, 'ZU_GROSS', null);
     if (istBinaer) return this.fehler(ws, 'UNGUELTIGES_JSON', null);
 
@@ -123,7 +162,6 @@ export class WsVerbindungen {
 
     const ergebnis = pruefeBefehl(json);
     if (!ergebnis.ok) return this.fehler(ws, ergebnis.code, ergebnis.befehlId);
-    if (!this.darf(ws)) return this.fehler(ws, 'ZU_VIELE_BEFEHLE', ergebnis.befehl.id);
 
     const dienst = this.dienst();
     if (!dienst) {
@@ -135,8 +173,15 @@ export class WsVerbindungen {
     this.sende(ws, { typ: 'bestaetigt', befehlId: ergebnis.befehl.id, geaendert });
   }
 
-  private fehler(ws: WebSocket, code: FehlerCode, befehlId: string | null): void {
-    this.log.warn('befehl', { ergebnis: code });
+  private fehler(ws: Lebendig, code: FehlerCode, befehlId: string | null): void {
+    const jetzt = performance.now();
+    if (jetzt >= (ws.logBis ?? 0)) {
+      this.log.warn('befehl', { ergebnis: code, unterdrueckt: ws.unterdrueckt || undefined });
+      ws.logBis = jetzt + LOG_PAUSE_MS;
+      ws.unterdrueckt = 0;
+    } else {
+      ws.unterdrueckt = (ws.unterdrueckt ?? 0) + 1;
+    }
     this.sende(ws, { typ: 'fehler', befehlId, code, meldung: MELDUNGEN[code] });
   }
 

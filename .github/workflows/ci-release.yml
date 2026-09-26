@@ -209,14 +209,18 @@ jobs:
             echo "Release-Hinweise $HINWEISE fehlen." >&2
             exit 1
           fi
-          # 1. Versions-Image (fehlt es, aus dem eben gebauten Digest erzeugen)
-          if ! docker buildx imagetools inspect "$REGISTRY/$IMAGE_NAME:$V" >/dev/null 2>&1; then
-            docker buildx imagetools create -t "$REGISTRY/$IMAGE_NAME:$V" "$REGISTRY/$IMAGE_NAME@$DIGEST"
-          fi
-          # 2. Git-Tag (fehlt er, auf diesen Commit setzen)
+          # 1. Git-Tag: fehlt er, auf diesen Commit setzen; sonst gilt der Commit des Tags.
           if [ -z "$(git ls-remote --tags origin "refs/tags/v$V")" ]; then
             git tag "v$V" "$GITHUB_SHA"
             git push origin "v$V"
+            QUELLE="$REGISTRY/$IMAGE_NAME@$DIGEST"
+          else
+            git fetch --tags --force origin
+            QUELLE="$REGISTRY/$IMAGE_NAME:sha-$(git rev-parse --short=7 "v$V^{commit}")"
+          fi
+          # 2. Versions-Image passend zum Tag-Commit (Review RR-03)
+          if ! docker buildx imagetools inspect "$REGISTRY/$IMAGE_NAME:$V" >/dev/null 2>&1; then
+            docker buildx imagetools create -t "$REGISTRY/$IMAGE_NAME:$V" "$QUELLE"
           fi
           # 3. GitHub Release
           gh release create "v$V" --title "IoT-Haus v$V" --notes-file "$HINWEISE" --generate-notes --verify-tag
