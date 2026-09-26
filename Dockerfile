@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Multi-stage Dockerfile for Smart Home Control System
+# Multi-Stage-Dockerfile für IoT-Haus 2.0
 # Gehärtet nach dem Vorfall React2Shell (CVE-2025-55182):
 # - Node 22 statt Node 18 (Node 18 hat keine Sicherheitsupdates mehr)
 # - Laufzeit als Benutzer node, nicht als root
@@ -34,7 +34,9 @@ WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY package.json server.js ./
+COPY --from=builder /app/dist ./dist
+# next.config.mjs wird zur Laufzeit gelesen (Security-Header, poweredByHeader: false – Review CR-05)
+COPY package.json next.config.mjs ./
 
 COPY docker/mosquitto.conf /etc/mosquitto/mosquitto.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -56,9 +58,12 @@ EXPOSE 3000
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
-    NEXT_PUBLIC_MQTT_BROKER_URL=auto \
     MQTT_BROKER_HOST=127.0.0.1 \
     MQTT_BROKER_PORT=1883
+
+# Healthcheck ohne curl/wget: Node 22 bringt fetch mit (FR-31, AD-14).
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
 # Numerische Kennung statt Name: Kubernetes prueft runAsNonRoot nur an einer Zahl.
 # Mit "USER node" verweigert der Pod den Start (CreateContainerConfigError).

@@ -1,0 +1,105 @@
+# generated: 2026-09-26 21:00
+# last_updated: 2026-09-26 21:00
+# project: iot-haus
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# PROJEKTHINWEISE (IoT-Haus 2.0, headless):
+# - Reihenfolge = epics.md = Architektur §3.11; verbindliche Konfliktauflösung K-01..K-30 im
+#   planning-artifacts/implementation-readiness-report-2026-09-26.md.
+# - Code zu 1.1–1.5, 2.1–2.3 und Teilen von 4.1 entsteht bereits parallel; Story-Dateien existieren noch
+#   nicht, daher Status 'backlog'. Beim Erstellen der Story-Datei vorhandenen Code gegen die ACs prüfen (M-2).
+# - Kein Merge auf main vor Abschluss von Epic 6 (Readiness-Auflage M-1).
+
+generated: 2026-09-26 21:00
+last_updated: 2026-09-26 21:00
+project: iot-haus
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: backlog
+  1-1-geraetekatalog-und-hausmodell: backlog
+  1-2-verbrauchs-kosten-und-laststufenrechnung: backlog
+  1-3-szenen-befehlspruefung-und-protokollvertrag: backlog
+  1-4-tagesenergie-integration-mit-berliner-mitternacht: backlog
+  1-5-deutsche-zahlen-und-zeitformate: backlog
+  1-6-werkzeugkette-version-2-0-0-und-katalog-waechter: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-serverkonfiguration-logger-und-version: backlog
+  2-2-persistenz-im-broker-mqtt-speicher-mit-wiederherstellung: backlog
+  2-3-zustandsdienst-mit-auto-aus-und-tagesenergie: backlog
+  2-4-websocket-protokoll-snapshot-befehle-verteilung: backlog
+  2-5-server-einstieg-health-endpunkt-und-broker-ausfall: backlog
+  2-6-mehrclient-integrationstests-gegen-den-echten-server: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-gehaertetes-image-mit-neuem-server-und-sofortiger-persistenz: backlog
+  3-2-healthcheck-ohne-curl-und-kompatible-compose-dateien: backlog
+  3-3-container-smoke-mit-neustart-persistenz: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-farb-tokens-theme-ohne-aufblitzen-und-barrierefreies-grundlayout: backlog
+  4-2-verbindung-und-client-zustand: backlog
+  4-3-app-geruest-ladezustand-und-symbole: backlog
+  4-4-kopfbereich-mit-live-verbrauch-und-uebersicht: backlog
+  4-5-aenderungsmeldungen-und-screenreader-ansagen: backlog
+  4-6-verbindungs-und-versionsbanner: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-raumkarten-mit-schaltbaren-geraetezeilen: backlog
+  5-2-auto-aus-restzeit-an-wasserkocher-und-mikrowelle: backlog
+  5-3-grundlast-dialog: backlog
+  5-4-raum-ausschalten: backlog
+  5-5-szenenleiste: backlog
+  5-6-hausansicht-verbrauch-nach-raum-und-zweispaltiges-layout: backlog
+  5-7-barrierefreiheit-der-ganzen-seite-automatisiert-absichern: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-qualitaetsgate-fuer-jeden-pr-und-push: backlog
+  6-2-container-pruefung-in-der-ci: backlog
+  6-3-image-veroeffentlichung-und-automatisches-release-2-0-0: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-toten-code-und-altlasten-entfernen: backlog
+  7-2-dokumentation-auf-stand-2-0-0: backlog
+  7-3-abnahme-checkliste-2-0: backlog
+  epic-7-retrospective: optional

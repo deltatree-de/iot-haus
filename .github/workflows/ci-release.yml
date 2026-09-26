@@ -1,0 +1,232 @@
+name: CI und Release
+
+# Ein Workflow für Qualität, Container-Prüfung, Image und Release (FR-32, FR-33, AD-13).
+# PRs: nur prüfen. Push auf main: nach grüner CI :latest veröffentlichen und – falls die Version
+# aus package.json noch keinen Tag hat – Tag, GitHub Release und Versions-Image erzeugen.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: deltatree-de/iot-haus
+
+jobs:
+  qualitaet:
+    name: Qualität (Lint, Typen, Tests, Build, Audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint (0 Fehler, 0 Warnungen)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests mit Abdeckung
+        run: npm test -- --coverage
+
+      - name: Build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build.log
+
+      - name: JS-Budget (First Load JS ≤ 200 kB)
+        run: node scripts/pruefe-js-budget.mjs build.log
+
+      - name: Sicherheitsaudit der Produktionsabhängigkeiten
+        run: npm audit --omit=dev --audit-level=high
+
+  container:
+    name: Container (Healthcheck, Rauchtest, Persistenz, Härtung)
+    needs: qualitaet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten für den Rauchtest
+        run: npm ci --no-audit --no-fund
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Image bauen (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: iot-haus:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Härtung prüfen (kein curl/wget/npm, UID 1000)
+        run: |
+          docker run --rm --entrypoint /bin/sh iot-haus:ci -c '
+            for b in curl wget npm npx corepack yarn apk nc; do
+              if command -v "$b" >/dev/null 2>&1; then echo "gefunden: $b"; exit 1; fi
+            done
+            [ "$(id -u)" = "1000" ] || { echo "UID ist $(id -u)"; exit 1; }
+            echo "Härtung ok"'
+
+      - name: Container starten
+        run: docker run -d --name ci -p 3000:3000 -v ci-daten:/var/lib/mosquitto iot-haus:ci
+
+      - name: Warten auf healthy (≤ 60 s)
+        run: scripts/warte-healthy.sh ci 60
+
+      - name: Rauchtest schalten
+        run: node scripts/smoke-container.mjs schalten
+
+      - name: Neustart und Persistenz prüfen
+        run: |
+          docker restart ci
+          scripts/warte-healthy.sh ci 60
+          node scripts/smoke-container.mjs pruefen
+
+      - name: Container-Log
+        if: always()
+        run: docker logs ci || true
+
+  image:
+    name: Image veröffentlichen (:latest)
+    needs: [qualitaet, container]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short,prefix=sha-
+
+      - id: build
+        name: Multi-Arch-Build und Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Zusammenfassung
+        run: |
+          {
+            echo "## Image veröffentlicht"
+            echo ""
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo "Digest: \`${{ steps.build.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Release (Tag, GitHub Release, Versions-Image)
+    needs: image
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release erzeugen, falls die Version neu ist
+        # Jeder Teilschritt ist einzeln idempotent: ein abgebrochener Lauf wird beim nächsten Push
+        # bzw. Re-Run vervollständigt, statt still grün zu enden (Review CR-02).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          V=$(node -p "require('./package.json').version")
+          if gh release view "v$V" >/dev/null 2>&1; then
+            echo "Release v$V existiert bereits – nichts zu tun." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          HINWEISE=".github/release-hinweise/v$V.md"
+          if [ ! -f "$HINWEISE" ]; then
+            echo "Release-Hinweise $HINWEISE fehlen." >&2
+            exit 1
+          fi
+          # 1. Git-Tag: fehlt er, auf diesen Commit setzen; sonst gilt der Commit des Tags.
+          if [ -z "$(git ls-remote --tags origin "refs/tags/v$V")" ]; then
+            git tag "v$V" "$GITHUB_SHA"
+            git push origin "v$V"
+            QUELLE="$REGISTRY/$IMAGE_NAME@$DIGEST"
+          else
+            git fetch --tags --force origin
+            QUELLE="$REGISTRY/$IMAGE_NAME:sha-$(git rev-parse --short=7 "v$V^{commit}")"
+          fi
+          # 2. Versions-Image passend zum Tag-Commit (Review RR-03)
+          if ! docker buildx imagetools inspect "$REGISTRY/$IMAGE_NAME:$V" >/dev/null 2>&1; then
+            docker buildx imagetools create -t "$REGISTRY/$IMAGE_NAME:$V" "$QUELLE"
+          fi
+          # 3. GitHub Release
+          gh release create "v$V" --title "IoT-Haus v$V" --notes-file "$HINWEISE" --generate-notes --verify-tag
+          {
+            echo "## Release v$V"
+            echo ""
+            echo "- Image: \`$REGISTRY/$IMAGE_NAME:$V\` und \`:latest\`"
+            echo "- GitHub Release: v$V"
+          } >> "$GITHUB_STEP_SUMMARY"
