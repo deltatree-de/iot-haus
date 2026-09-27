@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { snapshot, SERVER_ZEIT, verbundenerZustand } from '../../tests/fixtures/snapshot';
-import { anfangszustand, anzeigeAn, hausReducer, istBedienbar, istBeschaeftigt, type ClientZustand } from './hausReducer';
+import type { ServerNachricht } from '../domain/protokoll';
+import { snapshot, snapshotLaedt, SERVER_ZEIT, verbundenerZustand } from '../../tests/fixtures/snapshot';
+import { anfangszustand, anzeigeAn, anzeigeSonne, autoBeschaeftigt, hausReducer, istBedienbar, istBeschaeftigt, type ClientZustand } from './hausReducer';
 
-const V = '2.0.0';
+const V = '2.1.0';
 
 function aenderung(z: ClientZustand, geraete: Record<string, boolean>, ursache: { art: 'geraet' | 'szene' | 'raumAus' | 'autoAus'; ref: string; befehlId: string | null }) {
   const g: Record<string, { an: boolean; seit: number }> = {};
   for (const [id, an] of Object.entries(geraete)) g[id] = { an, seit: SERVER_ZEIT };
   return hausReducer(z, {
     typ: 'nachricht',
-    nachricht: { typ: 'aenderung', ursache, geraete: g, energie: { datum: '2026-09-26', wh: 3500 } },
+    nachricht: { typ: 'aenderung', ursache, geraete: g, energie: { datum: '2026-09-26', wh: 3500, bezugWh: 3500, einspeisungWh: 0 } },
     jetzt: SERVER_ZEIT,
     clientVersion: V,
   });
@@ -124,10 +125,10 @@ describe('hausReducer', () => {
 
   it('Energie-Nachricht aktualisiert Tageswert und Uhrversatz', () => {
     let z = verbundenerZustand();
-    z = hausReducer(z, { typ: 'nachricht', nachricht: { typ: 'energie', energie: { datum: '2026-09-26', wh: 4000 }, serverZeit: 2000 }, jetzt: 1000, clientVersion: V });
+    z = hausReducer(z, { typ: 'nachricht', nachricht: { typ: 'energie', energie: { datum: '2026-09-26', wh: 4000, bezugWh: 4000, einspeisungWh: 0 }, auto: { zuhause: true, akkuWh: 30000, stand: 0 }, serverZeit: 2000 }, jetzt: 1000, clientVersion: V });
     expect(z.server!.energie.wh).toBe(4000);
     expect(z.uhrVersatzMs).toBe(1000);
-    expect(hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: { typ: 'energie', energie: { datum: 'x', wh: 1 }, serverZeit: 1 }, jetzt: 1, clientVersion: V }).server).toBeNull();
+    expect(hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: { typ: 'energie', energie: { datum: 'x', wh: 1, bezugWh: 1, einspeisungWh: 0 }, auto: { zuhause: true, akkuWh: 1, stand: 0 }, serverZeit: 1 }, jetzt: 1, clientVersion: V }).server).toBeNull();
   });
 
   it('robust gegen unbekannte Kennungen und bei Versionskonflikt (Review CR-06)', () => {
@@ -149,5 +150,114 @@ describe('hausReducer', () => {
     expect(z.meldungen).toHaveLength(0);
     const leer = anfangszustand();
     expect(aenderung(leer, { 'bad.foehn': true }, { art: 'geraet', ref: 'bad.foehn', befehlId: null })).toBe(leer);
+  });
+});
+
+describe('hausReducer 2.1: Sonne und Elektroauto', () => {
+  function nachricht(z: ClientZustand, n: ServerNachricht) {
+    return hausReducer(z, { typ: 'nachricht', nachricht: n, jetzt: SERVER_ZEIT, clientVersion: V });
+  }
+  const energie = { datum: '2026-09-26', wh: 3500, bezugWh: 3500, einspeisungWh: 0 };
+
+  it('Snapshot übernimmt Auto, Sonne, Vergütung; fehlende Felder bekommen Standardwerte (T-24)', () => {
+    const z = verbundenerZustand(V, snapshotLaedt());
+    expect(z.server!.auto.akkuWh).toBe(38400);
+    expect(z.server!.sonne.stufe).toBe('heiter');
+    expect(z.server!.einspeiseverguetung).toBe(0.08);
+    const alt = snapshot() as Record<string, unknown>;
+    delete alt.auto;
+    delete alt.sonne;
+    delete alt.einspeiseverguetung;
+    alt.energie = { datum: '2026-09-26', wh: 3420 };
+    const z2 = hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: alt as never, jetzt: SERVER_ZEIT, clientVersion: V });
+    expect(z2.server).toMatchObject({ einspeiseverguetung: 0.08, sonne: { stufe: 'nacht' }, auto: { zuhause: true, akkuWh: 30000 } });
+    expect(z2.server!.energie).toEqual({ datum: '2026-09-26', wh: 3420, bezugWh: 3420, einspeisungWh: 0 });
+  });
+
+  it('Sonne: Meldung „solar“ ohne Delta, Ansage mit Netzbilanz (AC-12, AC-25)', () => {
+    const z = nachricht(verbundenerZustand(), {
+      typ: 'aenderung',
+      ursache: { art: 'sonne', ref: 'sonnig', befehlId: null },
+      geraete: {},
+      sonne: { stufe: 'sonnig', seit: SERVER_ZEIT },
+      energie,
+    });
+    expect(z.server!.sonne.stufe).toBe('sonnig');
+    const m = z.meldungen.at(-1)!;
+    expect(m).toMatchObject({ art: 'solar', delta: null, text: 'Sonne: Sonnig · Solar 8.330\u202fW' });
+    // Fixture: 2.288 W Verbrauch → Einspeisung 6.042 W
+    expect(m.ansage).toBe('Sonne: Sonnig. Solar 8.330 Watt. Einspeisung 6.042 Watt.');
+    expect(z.letzteAenderung?.differenzW).toBe(0);
+  });
+
+  it('Wegfahren mit laufendem Laden: Delta und Text (AC-06)', () => {
+    const start = verbundenerZustand(V, snapshotLaedt('nacht'));
+    const z = nachricht(start, {
+      typ: 'aenderung',
+      ursache: { art: 'auto', ref: 'weg', befehlId: null },
+      geraete: { 'carport.wallbox': { an: false, seit: SERVER_ZEIT } },
+      auto: { zuhause: false, akkuWh: 38400, stand: SERVER_ZEIT },
+      energie,
+    });
+    expect(z.meldungen.at(-1)).toMatchObject({ art: 'minus', delta: '−10.997\u202fW', text: 'Elektroauto weggefahren, Laden beendet' });
+    expect(z.letzteAenderung?.raeume).toEqual(['carport']);
+    expect(z.meldungen.at(-1)!.ansage).toMatch(/^Elektroauto weggefahren\. Hausverbrauch [\d.]+ Watt\.$/);
+  });
+
+  it('Wegfahren ohne Laden, Zurückkommen, Akku voll', () => {
+    let z = nachricht(verbundenerZustand(), {
+      typ: 'aenderung',
+      ursache: { art: 'auto', ref: 'weg', befehlId: null },
+      geraete: {},
+      auto: { zuhause: false, akkuWh: 30000, stand: SERVER_ZEIT },
+      energie,
+    });
+    expect(z.meldungen.at(-1)).toMatchObject({ art: 'info', delta: null, text: 'Elektroauto weggefahren' });
+    z = nachricht(z, {
+      typ: 'aenderung',
+      ursache: { art: 'auto', ref: 'zurueck', befehlId: null },
+      geraete: {},
+      auto: { zuhause: true, akkuWh: 21000, stand: SERVER_ZEIT },
+      energie,
+    });
+    expect(z.meldungen.at(-1)).toMatchObject({ art: 'info', text: 'Elektroauto zurück · Akku 35\u202f%', ansage: 'Elektroauto zurück, Akku 35 Prozent.' });
+    const laedt = verbundenerZustand(V, snapshotLaedt('nacht'));
+    z = nachricht(laedt, {
+      typ: 'aenderung',
+      ursache: { art: 'akkuVoll', ref: 'carport.wallbox', befehlId: null },
+      geraete: { 'carport.wallbox': { an: false, seit: SERVER_ZEIT } },
+      auto: { zuhause: true, akkuWh: 60000, stand: SERVER_ZEIT },
+      energie,
+    });
+    expect(z.meldungen.at(-1)).toMatchObject({ art: 'minus', delta: '−10.997\u202fW', text: 'Akku voll – Laden beendet (Carport)' });
+  });
+
+  it('Energie-Nachricht aktualisiert den Akku', () => {
+    const z = nachricht(verbundenerZustand(), {
+      typ: 'energie',
+      energie,
+      auto: { zuhause: true, akkuWh: 31000, stand: SERVER_ZEIT },
+      serverZeit: SERVER_ZEIT,
+    });
+    expect(z.server!.auto.akkuWh).toBe(31000);
+  });
+
+  it('Sonne optimistisch, Rücksprung bei Fehler; Auto-Fehlertexte (AC-16)', () => {
+    let z = hausReducer(verbundenerZustand(), { typ: 'gesendet', befehlId: 's1', ausstehend: { art: 'sonne', ref: 'sonnig' } });
+    expect(anzeigeSonne(z)).toEqual({ stufe: 'sonnig', beschaeftigt: true });
+    z = hausReducer(z, { typ: 'zeitueberschreitung', befehlId: 's1' });
+    expect(anzeigeSonne(z)).toEqual({ stufe: 'nacht', beschaeftigt: false });
+    expect(z.meldungen.at(-1)!.text).toBe('Sonne konnte nicht eingestellt werden. Bitte erneut versuchen.');
+    z = hausReducer(z, { typ: 'gesendet', befehlId: 'a1', ausstehend: { art: 'auto', ref: 'weg' } });
+    expect(autoBeschaeftigt(z)).toBe(true);
+    z = nachricht(z, { typ: 'fehler', befehlId: 'a1', code: 'NICHT_MOEGLICH', meldung: 'x' });
+    expect(z.meldungen.at(-1)!.text).toBe('Elektroauto konnte nicht wegfahren. Bitte erneut versuchen.');
+    expect(autoBeschaeftigt(z)).toBe(false);
+  });
+
+  it('2.0-Tab gegen 2.1-Server: Versionskonflikt ohne Ausnahme (AC-23)', () => {
+    const z = hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: snapshotLaedt(), jetzt: SERVER_ZEIT, clientVersion: '2.0.0' });
+    expect(z.versionKonflikt).toBe(true);
+    expect(istBedienbar(z)).toBe(false);
   });
 });

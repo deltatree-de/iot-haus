@@ -1,14 +1,18 @@
 // Persistenz des Serverzustands als retained MQTT-Nachrichten (Architektur §3.4, AD-04).
 import { EventEmitter } from 'node:events';
 import mqtt, { type MqttClient } from 'mqtt';
+import { ELEKTROAUTO, type AutoZustand } from '../src/domain/elektroauto';
 import { istGeraetId, type GeraetId } from '../src/domain/katalog';
 import type { Energie, GeraeteZustand } from '../src/domain/protokoll';
+import { istSonnenStufe, type SonnenZustand } from '../src/domain/solar';
 import type { Logger } from './log';
 import type { Gespeichert, Persistenz } from './zustandsdienst';
 
 export const TOPIC_PRAEFIX = 'iot-haus/v2';
 const GERAET_TOPIC = /^iot-haus\/v2\/geraet\/([^/]+)\/zustand$/;
 const ENERGIE_TOPIC = `${TOPIC_PRAEFIX}/energie/heute`;
+const AUTO_TOPIC = `${TOPIC_PRAEFIX}/auto/zustand`;
+const SONNE_TOPIC = `${TOPIC_PRAEFIX}/solar/sonne`;
 const DATUM = /^\d{4}-\d{2}-\d{2}$/;
 
 export function geraetTopic(id: GeraetId): string {
@@ -24,10 +28,28 @@ function parse(payload: Buffer): Record<string, unknown> | null {
   }
 }
 
+function endlichNichtNegativ(wert: unknown): wert is number {
+  return typeof wert === 'number' && Number.isFinite(wert) && wert >= 0;
+}
+
 /** Übernimmt eine gespeicherte Nachricht in `ziel`; liefert false, wenn sie ignoriert wird (FR-17). */
 export function uebernimmGespeichert(ziel: Gespeichert, topic: string, payload: Buffer): boolean {
   const daten = parse(payload);
-  if (!daten || daten.v !== 1) return false;
+  if (!daten) return false;
+  if (topic === ENERGIE_TOPIC) return uebernimmEnergie(ziel, daten);
+  if (daten.v !== 1) return false;
+  if (topic === AUTO_TOPIC) {
+    if (typeof daten.zuhause !== 'boolean' || !endlichNichtNegativ(daten.akkuWh) || !endlichNichtNegativ(daten.stand)) {
+      return false;
+    }
+    ziel.auto = { zuhause: daten.zuhause, akkuWh: Math.min(ELEKTROAUTO.kapazitaetWh, daten.akkuWh), stand: daten.stand };
+    return true;
+  }
+  if (topic === SONNE_TOPIC) {
+    if (!istSonnenStufe(daten.stufe) || !endlichNichtNegativ(daten.seit)) return false;
+    ziel.sonne = { stufe: daten.stufe, seit: daten.seit };
+    return true;
+  }
   const treffer = GERAET_TOPIC.exec(topic);
   if (treffer) {
     const id = treffer[1];
@@ -37,14 +59,19 @@ export function uebernimmGespeichert(ziel: Gespeichert, topic: string, payload: 
     ziel.geraete[id] = { an: daten.an, seit: daten.seit };
     return true;
   }
-  if (topic === ENERGIE_TOPIC) {
-    if (typeof daten.datum !== 'string' || !DATUM.test(daten.datum) || typeof daten.wh !== 'number' || !Number.isFinite(daten.wh) || daten.wh < 0) {
-      return false;
-    }
-    ziel.energie = { datum: daten.datum, wh: daten.wh };
+  return false;
+}
+
+/** Energie `v: 2` mit Bezug/Einspeisung; `v: 1` aus 2.0 wird als reiner Netzbezug gelesen (AD-26, AC-18). */
+function uebernimmEnergie(ziel: Gespeichert, daten: Record<string, unknown>): boolean {
+  if (typeof daten.datum !== 'string' || !DATUM.test(daten.datum) || !endlichNichtNegativ(daten.wh)) return false;
+  if (daten.v === 1) {
+    ziel.energie = { datum: daten.datum, wh: daten.wh, bezugWh: daten.wh, einspeisungWh: 0 };
     return true;
   }
-  return false;
+  if (daten.v !== 2 || !endlichNichtNegativ(daten.bezugWh) || !endlichNichtNegativ(daten.einspeisungWh)) return false;
+  ziel.energie = { datum: daten.datum, wh: daten.wh, bezugWh: daten.bezugWh, einspeisungWh: daten.einspeisungWh };
+  return true;
 }
 
 /**
@@ -85,7 +112,7 @@ export class MqttSpeicher extends EventEmitter implements Persistenz {
 
   /** Liest alle retained Zustände: abonnieren, Ruhefenster sammeln, abbestellen. */
   async lade(fensterMs: number): Promise<Gespeichert> {
-    const ergebnis: Gespeichert = { geraete: {}, energie: null };
+    const ergebnis: Gespeichert = { geraete: {}, energie: null, auto: null, sonne: null };
     const beiNachricht = (topic: string, payload: Buffer) => {
       if (!topic.startsWith(`${TOPIC_PRAEFIX}/`)) return;
       if (!uebernimmGespeichert(ergebnis, topic, payload)) this.log.warn('restore_ignoriert', { topic });
@@ -109,10 +136,22 @@ export class MqttSpeicher extends EventEmitter implements Persistenz {
   }
 
   speichereEnergie(energie: Energie, stand: number): Promise<void> {
-    const payload = JSON.stringify({ v: 1, datum: energie.datum, wh: energie.wh, stand });
+    const { datum, wh, bezugWh, einspeisungWh } = energie;
+    return this.speichere(ENERGIE_TOPIC, { v: 2, datum, wh, bezugWh, einspeisungWh, stand });
+  }
+
+  speichereAuto(auto: AutoZustand): Promise<void> {
+    return this.speichere(AUTO_TOPIC, { v: 1, zuhause: auto.zuhause, akkuWh: auto.akkuWh, stand: auto.stand });
+  }
+
+  speichereSonne(sonne: SonnenZustand): void {
+    void this.speichere(SONNE_TOPIC, { v: 1, stufe: sonne.stufe, seit: sonne.seit });
+  }
+
+  private speichere(topic: string, daten: object): Promise<void> {
     return new Promise((fertig) => {
-      this.client.publish(ENERGIE_TOPIC, payload, { qos: 1, retain: true }, (fehler) => {
-        if (fehler) this.log.warn('speichern_fehlgeschlagen', { topic: ENERGIE_TOPIC });
+      this.client.publish(topic, JSON.stringify(daten), { qos: 1, retain: true }, (fehler) => {
+        if (fehler) this.log.warn('speichern_fehlgeschlagen', { topic });
         fertig();
       });
     });

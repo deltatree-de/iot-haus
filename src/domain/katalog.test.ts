@@ -31,10 +31,11 @@ const ANHANG_A: [string, string, string, string, number, number, '' | 'G' | 'A']
   ['arbeitszimmer.pc', 'PC', 'arbeitszimmer', 'it', 150, 2, ''],
   ['arbeitszimmer.monitor', 'Monitor', 'arbeitszimmer', 'it', 25, 0.3, ''],
   ['arbeitszimmer.router', 'Router', 'arbeitszimmer', 'it', 10, 0, 'G'],
+  ['carport.wallbox', 'Wallbox', 'carport', 'mobilitaet', 11000, 3, ''],
 ];
 
 describe('Gerätekatalog (FR-1, FR-2)', () => {
-  it('hat genau 6 Räume mit IDs, Namen und Etagen', () => {
+  it('hat 6 Haus-Räume plus Carport (2.1) mit IDs, Namen und Etagen', () => {
     expect(RAEUME.map((r) => [r.id, r.name, r.etage])).toEqual([
       ['wohnzimmer', 'Wohnzimmer', 'EG'],
       ['kueche', 'Küche', 'EG'],
@@ -42,6 +43,7 @@ describe('Gerätekatalog (FR-1, FR-2)', () => {
       ['schlafzimmer', 'Schlafzimmer', 'OG'],
       ['bad', 'Badezimmer', 'OG'],
       ['arbeitszimmer', 'Arbeitszimmer', 'OG'],
+      ['carport', 'Carport', 'Außen'],
     ]);
   });
 
@@ -59,7 +61,7 @@ describe('Gerätekatalog (FR-1, FR-2)', () => {
   });
 
   it('hat eindeutige IDs und gültige Leistungswerte', () => {
-    expect(new Set(GERAETE.map((g) => g.id)).size).toBe(28);
+    expect(new Set(GERAETE.map((g) => g.id)).size).toBe(29);
     for (const g of GERAETE) {
       expect(g.betriebW).toBeGreaterThan(0);
       expect(g.standbyW).toBeGreaterThanOrEqual(0);
@@ -69,10 +71,10 @@ describe('Gerätekatalog (FR-1, FR-2)', () => {
     }
   });
 
-  it('hat mindestens 3 Geräte je Raum und die Kontrollsummen', () => {
+  it('hat mindestens 3 Geräte je Haus-Raum, Carport genau 1', () => {
     const anzahl = RAEUME.map((r) => geraeteImRaum(r.id).length);
-    expect(anzahl).toEqual([5, 7, 4, 3, 4, 5]);
-    expect(Math.min(...anzahl)).toBeGreaterThanOrEqual(3);
+    expect(anzahl).toEqual([5, 7, 4, 3, 4, 5, 1]);
+    expect(Math.min(...anzahl.slice(0, 6))).toBeGreaterThanOrEqual(3);
   });
 
   it('Auto-Aus nur für Wasserkocher und Mikrowelle mit 180 s', () => {

@@ -21,6 +21,10 @@ const PFADE = {
   pc: 'M6 2h8v20H6zM9 6h2M9 9h2M10 18h.01M17 8v12',
   monitor: 'M2 4h20v13H2zM8 21h8M12 17v4',
   router: 'M3 14h18v6H3zM7 17h.01M11 17h.01M17 14V9M8.5 9.5a5 5 0 0 1 7 0M6 7a8.5 8.5 0 0 1 12 0',
+  wallbox: 'M6 3h9v18H6zM9 7h3M10.5 11l-1.5 3h3l-1.5 3M15 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 2 2',
+  auto: 'M5 17h14M3 13l2-6a2 2 0 0 1 2-1.5h10A2 2 0 0 1 19 7l2 6v4h-2M5 17H3v-4h18M7 17a2 2 0 1 0 4 0M13 17a2 2 0 1 0 4 0M7 13h.01M17 13h.01',
+  blitz: 'M13 2 4 14h7l-1 8 9-12h-7z',
+  solar: 'M3 20 6 8h12l3 12zM4.5 14h15M12 8v12M8 8l-1.5 12M16 8l1.5 12',
   haus: 'M3 11l9-8 9 8M5 9.5V21h14V9.5M10 21v-6h4v6',
   info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-5M12 8h.01',
   schliessen: 'M18 6L6 18M6 6l12 12',
@@ -68,6 +72,7 @@ export const GERAETE_SYMBOL: Record<GeraeteSymbol, SymbolName> = {
   pc: 'pc',
   monitor: 'monitor',
   router: 'router',
+  wallbox: 'wallbox',
 };
 
 interface SymbolProps {

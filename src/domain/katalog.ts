@@ -1,9 +1,17 @@
 // Gerätekatalog IoT-Haus 2.0 – einzige Quelle für Räume und Geräte (PRD Anhang A).
 // Leistungswerte sind typische Mittelwerte eines deutschen Haushalts (Schätzung).
 
-export type Etage = 'EG' | 'OG';
+export type Etage = 'EG' | 'OG' | 'Außen';
 
-export type Kategorie = 'licht' | 'kueche' | 'unterhaltung' | 'haushalt' | 'koerperpflege' | 'heizung' | 'it';
+export type Kategorie =
+  | 'licht'
+  | 'kueche'
+  | 'unterhaltung'
+  | 'haushalt'
+  | 'koerperpflege'
+  | 'heizung'
+  | 'it'
+  | 'mobilitaet';
 
 export type SymbolName =
   | 'deckenlampe'
@@ -27,7 +35,8 @@ export type SymbolName =
   | 'heizluefter'
   | 'pc'
   | 'monitor'
-  | 'router';
+  | 'router'
+  | 'wallbox';
 
 export const KATEGORIE_NAMEN: Record<Kategorie, string> = {
   licht: 'Licht',
@@ -37,6 +46,7 @@ export const KATEGORIE_NAMEN: Record<Kategorie, string> = {
   koerperpflege: 'Körperpflege',
   heizung: 'Heizung',
   it: 'IT',
+  mobilitaet: 'Mobilität',
 };
 
 export const RAEUME = [
@@ -46,6 +56,8 @@ export const RAEUME = [
   { id: 'schlafzimmer', name: 'Schlafzimmer', etage: 'OG' },
   { id: 'bad', name: 'Badezimmer', etage: 'OG' },
   { id: 'arbeitszimmer', name: 'Arbeitszimmer', etage: 'OG' },
+  // Außenbereich mit Wallbox für das Elektroauto (2.1, E-01)
+  { id: 'carport', name: 'Carport', etage: 'Außen' },
 ] as const satisfies readonly { id: string; name: string; etage: Etage }[];
 
 export type RaumId = (typeof RAEUME)[number]['id'];
@@ -94,9 +106,14 @@ export const GERAETE = [
   { id: 'arbeitszimmer.pc', name: 'PC', raum: 'arbeitszimmer', kategorie: 'it', symbol: 'pc', betriebW: 150, standbyW: 2, grundlast: false, autoAusS: null },
   { id: 'arbeitszimmer.monitor', name: 'Monitor', raum: 'arbeitszimmer', kategorie: 'it', symbol: 'monitor', betriebW: 25, standbyW: 0.3, grundlast: false, autoAusS: null },
   { id: 'arbeitszimmer.router', name: 'Router', raum: 'arbeitszimmer', kategorie: 'it', symbol: 'router', betriebW: 10, standbyW: 0, grundlast: true, autoAusS: null },
+  // Wallbox An = Elektroauto lädt (2.1, E-02/E-03/E-31)
+  { id: 'carport.wallbox', name: 'Wallbox', raum: 'carport', kategorie: 'mobilitaet', symbol: 'wallbox', betriebW: 11000, standbyW: 3, grundlast: false, autoAusS: null },
 ] as const satisfies readonly GeraetDefinition[];
 
 export type GeraetId = (typeof GERAETE)[number]['id'];
+
+/** Etagen des Hausrasters in der Hausansicht (oben nach unten); „Außen“ wird separat gezeigt. */
+export const HAUS_ETAGEN = ['OG', 'EG'] as const;
 
 export type Geraet = GeraetDefinition & { id: GeraetId };
 

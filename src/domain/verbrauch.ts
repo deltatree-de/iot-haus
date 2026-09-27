@@ -1,6 +1,6 @@
 // Verbrauchs- und Kostenrechnung (PRD FR-6 bis FR-13). Alle Summen mit ungerundeten Katalogwerten.
 import { GERAETE, RAEUME, type Geraet, type RaumId } from './katalog';
-import type { HausZustand } from './protokoll';
+import type { Energie, HausZustand } from './protokoll';
 
 export type Laststufe = 'niedrig' | 'mittel' | 'hoch';
 
@@ -68,4 +68,36 @@ export function verbrauchNachRaum(zustand: HausZustand): RaumAnteil[] {
   return RAEUME.map((r, index) => ({ raum: r.id, watt: raumverbrauch(zustand, r.id), index }))
     .sort((a, b) => b.watt - a.watt || a.index - b.index)
     .map(({ raum, watt }) => ({ raum, watt, anteil: gesamt > 0 ? watt / gesamt : 0 }));
+}
+
+export interface Netzbilanz {
+  verbrauchW: number;
+  erzeugungW: number;
+  bezugW: number;
+  einspeisungW: number;
+}
+
+/** Netzbilanz aus gerundeten Anzeigewerten, damit Verbrauch − Solar exakt aufgeht (FR-41, E-20). */
+export function netzbilanz(verbrauchGerundet: number, erzeugungGerundet: number): Netzbilanz {
+  const saldo = verbrauchGerundet - erzeugungGerundet;
+  return {
+    verbrauchW: verbrauchGerundet,
+    erzeugungW: erzeugungGerundet,
+    bezugW: Math.max(0, saldo),
+    einspeisungW: Math.max(0, -saldo),
+  };
+}
+
+export function ertragProStunde(einspeisungW: number, verguetung: number): number {
+  return (einspeisungW / 1000) * verguetung;
+}
+
+/** Netto-Tageskosten: Bezug × Strompreis − Einspeisung × Vergütung (darf negativ sein = Ertrag). */
+export function tagesKosten(e: Energie, strompreis: number, verguetung: number): number {
+  return (e.bezugWh / 1000) * strompreis - (e.einspeisungWh / 1000) * verguetung;
+}
+
+/** Heute erzeugte Solarenergie in Wh = Verbrauch − Bezug + Einspeisung. */
+export function tagesErzeugungWh(e: Energie): number {
+  return Math.max(0, e.wh - e.bezugWh + e.einspeisungWh);
 }

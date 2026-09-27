@@ -2,6 +2,8 @@
 stepsCompleted: [1, 2, 3, 4, 5, 6]
 status: final
 date: 2026-09-26
+updated: 2026-09-27
+changeProposal: _bmad-output/planning-artifacts/sprint-change-proposal-2026-09-27.md
 project: iot-haus
 assessor: 'John (BMAD PM), headless'
 documentsIncluded:
@@ -26,7 +28,7 @@ documentsIncluded:
 **Project:** iot-haus (Release 2.0.0 „Best UX ever“)
 **Assessor:** John (BMAD PM), headless – alle Menüs mit [C] beantwortet, Stakeholder nicht verfügbar (00-auftrag.md)
 
-> **Für die Entwicklung zuerst lesen:** Abschnitt [Konfliktauflösung](#konfliktauflösung) (K-01 bis K-30). Er ist **verbindlich** und geht bei Widersprüchen allen anderen Planungsartefakten vor. Die Stories in `epics.md` sind bereits danach formuliert.
+> **Für die Entwicklung zuerst lesen:** Abschnitt [Konfliktauflösung](#konfliktauflösung) (K-01 bis K-31, inkl. [Fortschreibung 2.1](#fortschreibung-21-2026-09-27)). Er ist **verbindlich** und geht bei Widersprüchen allen anderen Planungsartefakten vor. Die Stories in `epics.md` sind bereits danach formuliert.
 
 ## 1. Document Discovery
 
@@ -152,12 +154,12 @@ Gefunden: Einstieg `ux-design-specification.md` + zwei verbindliche Spines (`DES
 
 | ID | Konflikt | Quellen | Verbindliche Auflösung |
 |---|---|---|---|
-| **K-01** | Datei und Form der Farb-Tokens | UX: `src/ui/tokens.ts`, Exporte `hell`/`dunkel`; Arch §3.8/AD-15: `src/ui/farbtokens.ts` | Datei **`src/ui/farbtokens.ts`** (Arch). Exporte `TOKEN_NAMEN`, `HELL`, `DUNKEL`, `KONTRAST_PAARE` (wie umgesetzt). **Werte** = exakt DESIGN.md-Frontmatter, 34 Rollen je Theme; kein Wert darf abweichen. |
+| **K-01** | Datei und Form der Farb-Tokens | UX: `src/ui/tokens.ts`, Exporte `hell`/`dunkel`; Arch §3.8/AD-15: `src/ui/farbtokens.ts` | Datei **`src/ui/farbtokens.ts`** (Arch). Exporte `TOKEN_NAMEN`, `HELL`, `DUNKEL`, `KONTRAST_PAARE` (wie umgesetzt). **Werte** = exakt DESIGN.md-Frontmatter, 34 Rollen je Theme; kein Wert darf abweichen. **2.1:** 36 Rollen je Theme (+ `solar`, `solar-soft`). |
 | **K-02** | Wert des Theme-Attributs | UX: `[data-theme="dark"]`; Arch: `hell`/`dunkel` | **`data-theme="hell"` / `data-theme="dunkel"`** auf `<html>`. Tailwind: `@custom-variant dark (&:where([data-theme=dunkel], [data-theme=dunkel] *));` Kein `light`/`dark`. |
 | **K-03** | Namen der CSS-Variablen | UX: `--c-<name>`; Arch: nicht festgelegt | **`--c-‹rolle›`** (z. B. `--c-ink-muted`), per `<style>` im Layout aus `farbtokens.ts` erzeugt; Tailwind-Mapping `@theme inline { --color-‹rolle›: var(--c-‹rolle›) }`. Motion-Variablen `--m-*` (UX). |
 | **K-04** | localStorage-Schlüssel für die Darstellung | UX-21: `iot-haus-darstellung`; Arch §3.4: `iot-haus.theme` | **`iot-haus.theme`** mit Werten `system`/`hell`/`dunkel` (Arch, einziger Browser-Schlüssel). Altschlüssel `smart-home-state` wird im Theme-Skript gelöscht. |
-| **K-05** | Umfang des Kontrasttests | UX: „mindestens die Paare der DESIGN.md-Tabellen“; Arch: „Liste der Paare in farbtokens.ts“ | `KONTRAST_PAARE` enthält **mindestens alle Paare aller DESIGN.md-Kontrasttabellen** (Flächen/Text, Akzent, Schalter/Fokus/Primär/Fehler, Laststufen, Delta, Banner, Hausansicht) mit Soll 4,5 bzw. 3, geprüft in beiden Themes. Nachgerechnet am 2026-09-26: alle Paare bestehen (niedrigster UI-Wert `on`/`room-lit` hell 4,03:1 ≥ 3; niedrigster Textwert `ink-muted`/`surface-sunken` hell 4,75:1). |
-| **K-06** | Komponenten-Namen und -Schnitt | UX „Bausteine“ vs. Arch §3.8/§5.1 | **Dateinamen nach Architektur §5.1**, Verhalten/Aussehen nach UX. Abbildung: `SkipLink`→**`Sprunglink`**; `Hausverbrauch`→**`Zaehler`** (im `Kopfbereich`, mit UX-Struktur sr-only-Zielwert + `aria-hidden`-Zahl); `Laststufe`→**`LaststufePille`**; `Verbindungsstatus`→**`VerbindungsStatus`**; `SzenenLeiste`→**`Szenenleiste`** + **`SzenenKnopf`**; `GeraetSchalter`→**`GeraeteZeile`** + **`Schalter`** (siehe K-07); `Ansager`→**`LiveRegion`**; `Banner`→**`VerbindungsBanner`** + **`VersionsBanner`** (gemeinsame Optik, siehe K-23); `Icon`→**`Symbol`**. **Zusätzlich neu** (in Arch fehlend, von UX verlangt): **`DeltaChip.tsx`**, **`Fusszeile.tsx`**, **`src/ui/texte.ts`**, **`src/hooks/useSekundentakt.ts`**. Das Erstfehler-Hinweisfeld rendert `Skeleton` (Prop). `RaumAusKnopf`, `InfoHinweis`, `ThemeWahl`, `Uebersicht`, `RaumFlaeche`, `VerbrauchNachRaum`, `Meldungen`, `GrundlastDialog` wie Arch. |
+| **K-05** | Umfang des Kontrasttests | UX: „mindestens die Paare der DESIGN.md-Tabellen“; Arch: „Liste der Paare in farbtokens.ts“ | `KONTRAST_PAARE` enthält **mindestens alle Paare aller DESIGN.md-Kontrasttabellen** (Flächen/Text, Akzent, Schalter/Fokus/Primär/Fehler, Laststufen, Delta, Banner, Hausansicht) mit Soll 4,5 bzw. 3, geprüft in beiden Themes. Nachgerechnet am 2026-09-26: alle Paare bestehen (niedrigster UI-Wert `on`/`room-lit` hell 4,03:1 ≥ 3; niedrigster Textwert `ink-muted`/`surface-sunken` hell 4,75:1). **2.1:** + 10 Paare aus Proposal §5.4.6 (`solar`/`solar-soft` u. a.), alle bestehen. |
+| **K-06** | Komponenten-Namen und -Schnitt | UX „Bausteine“ vs. Arch §3.8/§5.1 | **Dateinamen nach Architektur §5.1**, Verhalten/Aussehen nach UX. Abbildung: `SkipLink`→**`Sprunglink`**; `Hausverbrauch`→**`Zaehler`** (im `Kopfbereich`, mit UX-Struktur sr-only-Zielwert + `aria-hidden`-Zahl); `Laststufe`→**`LaststufePille`**; `Verbindungsstatus`→**`VerbindungsStatus`**; `SzenenLeiste`→**`Szenenleiste`** + **`SzenenKnopf`**; `GeraetSchalter`→**`GeraeteZeile`** + **`Schalter`** (siehe K-07); `Ansager`→**`LiveRegion`**; `Banner`→**`VerbindungsBanner`** + **`VersionsBanner`** (gemeinsame Optik, siehe K-23); `Icon`→**`Symbol`**. **Zusätzlich neu** (in Arch fehlend, von UX verlangt): **`DeltaChip.tsx`**, **`Fusszeile.tsx`**, **`src/ui/texte.ts`**, **`src/hooks/useSekundentakt.ts`**. Das Erstfehler-Hinweisfeld rendert `Skeleton` (Prop). `RaumAusKnopf`, `InfoHinweis`, `ThemeWahl`, `Uebersicht`, `RaumFlaeche`, `VerbrauchNachRaum`, `Meldungen`, `GrundlastDialog` wie Arch. **2.1:** neu `NetzZeile`, `Solaranlage`, `SonnenWahl`, `Elektroauto`, `CarportFlaeche`. |
 | **K-07** | Struktur Gerätezeile/Schalter | Arch: `GeraeteZeile → Schalter`, Komponententest „Schalter (role/aria)“; UX-05: ganze Zeile ist der Switch | **Die ganze `GeraeteZeile` ist ein `<button role="switch" aria-checked>`** (UX, erfüllt FR-27 „ganze Zeile ist Trefferfläche“). `Schalter.tsx` ist rein visuell und `aria-hidden`. Der Arch-Komponententest „Schalter“ prüft Rolle/ARIA an der `GeraeteZeile`. |
 | **K-08** | Hook-Namen und Sekundentakt | UX: `useZaehler`, `useSekundentakt`; Arch: `useHochzaehlen`, `useRestzeit` | **`useHochzaehlen(ziel, 600)`** und **`useRestzeit(seit, dauerS)`** (Arch). `useRestzeit` und der Banner-Countdown nutzen **einen** gemeinsamen, neuen **`useSekundentakt()`** (UX-Forderung „ein Takt für die Seite“), der nur tickt, solange ein Abonnent aktiv ist. |
 | **K-09** | Sammelfenster der Screenreader-Ansage | Arch §3.8 `useAnsage`: „erste Änderung sofort, weitere ersetzen den ausstehenden Eintrag“; PRD FR-11 + UX + UJ-4-Randfall: „nur die letzte wird angesagt“ | **PRD gewinnt.** Mit der ersten Änderung startet ein 2-s-Fenster; jede weitere Änderung im Fenster ersetzt den ausstehenden Text; **am Fensterende wird nur der letzte Text angesagt**. Fehler, „keine Änderung nötig“ und „Verbindung wiederhergestellt.“ werden sofort angesagt. (Die Arch-Variante würde im UJ-4-Randfall zusätzlich „Mikrowelle an …“ ansagen.) |
@@ -165,7 +167,7 @@ Gefunden: Einstieg `ux-design-specification.md` + zwei verbindliche Spines (`DES
 | **K-11** | Symbolnamen der Geräte | UX: `lampe` für alle Lampen, `trockner`; umgesetzter Katalog: `deckenlampe`, `stehlampe`, `nachttischlampe`, `spiegelleuchte`, `schreibtischlampe`, `waeschetrockner` | **Der umgesetzte Typ `SymbolName` in `src/domain/katalog.ts` ist verbindlich** (22 Gerätesymbole). `Symbol` muss jeden Wert rendern; die fünf Lampen dürfen dieselbe Zeichnung teilen. UI-Symbole wie in UX (haus, verbunden, …, haekchen). |
 | **K-12** | `apple-touch-icon` | UX-30: echte PNG 180 × 180; Arch §3.8: kaputten PNG-Link entfernen, `apple-touch-icon.svg` bleibt | **Arch gewinnt:** der Link auf die nicht existierende PNG entfällt, es wird kein neues Binär-Asset erzeugt; `appleWebApp.title: "IoT-Haus"` bleibt (UX). Begründung: kein PRD-Bestandteil, vermeidet Bild-Pipeline; der 404 (Befund U-10) ist damit behoben. |
 | **K-13** | Quelle und Wortlaut der Texte | UX: Microcopy-Katalog in `src/ui/texte.ts`; Arch: „UI-Texte aus Katalog zusammengesetzt“; PRD: Einzeltexte in FR | **`src/ui/texte.ts`** enthält den **vollständigen Microcopy-Katalog aus EXPERIENCE.md** (Schlüssel dort); Geräte-, Raum- und Szenennamen kommen aus dem Katalog. PRD-Wortlaute haben Vorrang; sie sind im Katalog wortgleich enthalten (Grundlast-Dialog = PRD-Satz, aufgeteilt in Titel „‹Gerät› wirklich ausschalten?“ und Text „Es ist ein Grundlastgerät und läuft normalerweise dauerhaft.“). Zeichen: „…“ (U+2026) mit Leerzeichen davor („Verbinde …“), Minus U+2212, schmales geschütztes Leerzeichen U+202F vor Einheiten. |
-| **K-14** | Inhalt des sticky Kopfbereichs | PRD §4.5-Beschreibung nennt Tageswerte und Theme-Wahl im Kopf; PRD FR-6 legt sie in den Übersichtsbereich | **FR-6 gewinnt** (spezifischer, testbar): sticky nur Hausverbrauch, Laststufe, Kosten/h, Verbindungsstatus (+ Marke, siehe K-19); Standby, Tageswerte, Strompreis, Theme im mitscrollenden Übersichtsbereich. |
+| **K-14** | Inhalt des sticky Kopfbereichs | PRD §4.5-Beschreibung nennt Tageswerte und Theme-Wahl im Kopf; PRD FR-6 legt sie in den Übersichtsbereich | **FR-6 gewinnt** (spezifischer, testbar): sticky nur Hausverbrauch, Laststufe, Kosten/h, Verbindungsstatus (+ Marke, siehe K-19); Standby, Tageswerte, Strompreis, Theme im mitscrollenden Übersichtsbereich. **2.1:** zusätzlich Netz-Zeile (nur Werte); Sonnenwahl **nicht** im Kopf. |
 | **K-15** | Fehlertexte für Szene und Raum | PRD FR-21 definiert nur „‹Gerät› konnte nicht geschaltet werden …“ | UX-Texte übernommen: „‹Szene› konnte nicht ausgeführt werden. Bitte erneut versuchen.“, „‹Raum› konnte nicht ausgeschaltet werden. Bitte erneut versuchen.“; nur im auslösenden Client. |
 | **K-16** | Erstfehler / Snapshot-Zeitlimit | UX: Erstfehler nach 5 s ohne Snapshot; Arch-Transport kennt kein Snapshot-Zeitlimit | `HausVerbindung` schließt die Verbindung, wenn **5 s nach dem Öffnen kein Snapshot** kam, und geht in den Backoff. Solange noch nie ein Snapshot da war, zeigt die App Skeleton + Hinweisfeld „Keine Verbindung zum Haus“ + Getrennt-Banner; beim normalen Start kein Banner. |
 | **K-17** | `theme-color` | PRD FR-28 ohne Werte; UX: Kopffläche | Hell **`#FFFFFF`**, Dunkel **`#131C2E`**; gesetzt durch das Theme-Skript, `viewport` ohne `themeColor`. |
@@ -176,14 +178,30 @@ Gefunden: Einstieg `ux-design-specification.md` + zwei verbindliche Spines (`DES
 | **K-22** | Zugänglicher Name eines Raums bei n = 1 | PRD FR-26: „‹n› Geräte an“ | UX-Ergänzung übernommen: bei n = 1 „1 Gerät an“, sonst „‹n› Geräte an“. |
 | **K-23** | Platz der Banner | Arch-Komponentenbaum: Banner direkt nach dem Sprunglink; UX-08: fest am unteren Rand, in der Tab-Reihenfolge zuletzt | **UX:** Banner im Überlagerungsbereich nach der Fußzeile, `position: fixed` unten, `role="status"`, max. eines (Version vor Getrennt). Tab-Reihenfolge endet mit Toast-Schließen-Knöpfen und Banner-Aktion. |
 | **K-24** | Sichtbarkeitsdauer der Meldungen | PRD FR-11: 4 s; UX-26: Timer pausiert bei Hover/Fokus | Beide gelten: 4 s **reine** Sichtzeit, pausiert während Zeiger-Hover oder Fokus in der Meldung (WCAG 2.2.1). |
-| **K-25** | „Anzahl an“ und Grundlast | PRD FR-7 unbestimmt; UX-Beispiel „0 von 5 an“ mit Zusatz „Grundlastgeräte zählen mit“ | Grundlastgeräte **zählen** bei „n an“/„n von m an“ und im zugänglichen Raumnamen mit (Küche im Ausgangszustand: „EG · 1 von 7 an“). „Raum ausschalten“ ist dagegen nur aktiv, wenn ein **Nicht**-Grundlastgerät an ist. |
+| **K-25** | „Anzahl an“ und Grundlast | PRD FR-7 unbestimmt; UX-Beispiel „0 von 5 an“ mit Zusatz „Grundlastgeräte zählen mit“ | Grundlastgeräte **zählen** bei „n an“/„n von m an“ und im zugänglichen Raumnamen mit (Küche im Ausgangszustand: „EG · 1 von 7 an“). „Raum ausschalten“ ist dagegen nur aktiv, wenn ein **Nicht**-Grundlastgerät an ist. **2.1:** Carport zählt als Raum („Außen · 1 von 1 an“); „Raum ausschalten“ entfällt dort. |
 | **K-26** | Optimistische Anzeige bei Szenen/Raum | Arch-`ausstehend` hat für alle Arten ein `ziel`; UX-10: keine optimistische Geräteänderung für Szenen und „Raum ausschalten“ | **UX:** `ausstehend`-Einträge für `szene`/`raumAus` haben ein **leeres `ziel`**; nur die auslösende Schaltfläche ist `aria-busy`. Optimistisch ist nur der Einzelschalter (FR-21). |
 | **K-27** | Strompreis-Variable fehlt oder ist leer | PRD FR-9: „fehlende Werte → 0,35 und Warnung“; Arch §7: „leer → 0,35 + Logzeile“ | Nicht gesetzt oder leer → 0,35 mit **INFO**-Zeile `strompreis quelle=standard` (normaler Standardfall, keine Warnung im Dauerbetrieb); ungültig (z. B. `abc`, `0,32`) oder negativ → 0,35 mit **WARN** `strompreis_ungueltig`; `0` ist gültig. Entspricht dem umgesetzten `server/konfig.ts`. |
 | **K-28** | Countdown „Nächster Versuch in n s“ | UX verlangt Countdown; Arch-Transport liefert keinen Zeitpunkt | `HausVerbindung` stellt **`naechsterVersuchUm`** (ms epoch) bereit; der Banner rechnet mit `useSekundentakt`. |
 | **K-29** | Vorzeichen und Null-Differenz | PRD FR-11: „mit Vorzeichen“; UX-15: „±0 W“ | „+“ für Zunahme, „−“ (U+2212) für Abnahme, **„±0 W“** wenn die gerundete Differenz 0 ist, aber Geräte geändert wurden (dann kein Delta-Chip, keine Zählanimation). |
 | **K-30** | Snapshot nach Wiederverbindung | Arch: „Snapshot ersetzt `server` vollständig“; UX-14: ohne Animation, Toasts, Impulse | Beide: vollständiger Ersatz **ohne** Zählanimation, Delta-Chip, Toasts oder Impulse; nur die Live-Region sagt „Verbindung wiederhergestellt.“ |
+| **K-31** | Bezugsgröße von Laststufe/Delta mit Solaranlage (2.1) | Proposal §5.2/§5.4: Hero Hausverbrauch vs. neue Netzbilanz | Laststufe und Delta-Chip bleiben am **Hausverbrauch**; die Netzbilanz hat keinen eigenen Chip und keine Zählanimation (E-19). |
 
 Diese Tabelle ersetzt keine Planungsdokumente, sondern ist die eine eindeutige Antwort bei Widersprüchen. Neue Widersprüche, die in der Umsetzung auffallen, werden per `bmad-correct-course` ergänzt (neue K-Nummer), nicht stillschweigend entschieden.
+
+### Fortschreibung 2.1 (2026-09-27)
+
+Auslöser: `sprint-change-proposal-2026-09-27.md` (Elektroauto & Solaranlage, Epic 8). Die folgenden Auflösungen ergänzen die obigen Einträge (dort jeweils mit „**2.1:**“ vermerkt) und sind ebenso verbindlich.
+
+| ID | Fortschreibung |
+|---|---|
+| K-01 | 36 Rollen je Theme (+ `solar`, `solar-soft`). |
+| K-05 | `KONTRAST_PAARE` + 10 Paare aus Proposal §5.4.6 (niedrigster Wert `solar`/`room-off` hell 4,53:1 ≥ 4,5). |
+| K-06 | Neue Komponenten: `NetzZeile`, `Solaranlage`, `SonnenWahl`, `Elektroauto`, `CarportFlaeche`. |
+| K-14 | Sticky-Kopf zusätzlich mit Netz-Zeile (Werte, keine Bedienelemente); Sonnenwahl gehört **nicht** in den Kopf. Kopfhöhe mobil 136 px (21 %). |
+| K-25 | Carport zählt als Raum („Außen · 1 von 1 an“); „Raum ausschalten“ entfällt dort (E-12). |
+| K-31 (neu) | Laststufe und Delta-Chip bleiben am Hausverbrauch, die Netzbilanz hat keinen eigenen Chip und keine Zählanimation (E-19). |
+
+Readiness für Epic 8: **READY** (FR-36 … FR-44 und die geänderten FR sind in Epic 8 abgedeckt; Architektur §3.12, AD-23 … AD-27).
 
 ## 5. Epic Quality Review
 
@@ -232,7 +250,7 @@ Keine. Keine Vorwärtsabhängigkeit, keine epicgroße Story, keine fehlende FR.
 
 ### Overall Readiness Status
 
-**READY** – unter der Bedingung, dass die Konfliktauflösung K-01 bis K-30 als verbindlich gilt.
+**READY** – unter der Bedingung, dass die Konfliktauflösung K-01 bis K-31 (inkl. Fortschreibung 2.1) als verbindlich gilt.
 
 ### Critical Issues Requiring Immediate Action
 

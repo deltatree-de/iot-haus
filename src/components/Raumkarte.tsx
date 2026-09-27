@@ -2,9 +2,11 @@
 
 // Raumkarte: Geräteliste mit Schaltern und „Raum ausschalten“ (FR-7, FR-27).
 import { anzeigeAn, istBeschaeftigt } from '@/client/hausReducer';
-import { geraeteImRaum, type Geraet, type Raum } from '@/domain/katalog';
+import { akkuWhBei, ELEKTROAUTO, istVoll } from '@/domain/elektroauto';
+import { geraetById, geraeteImRaum, type Geraet, type Raum } from '@/domain/katalog';
 import { watt } from '@/domain/format';
 import { anzahlAn, raumverbrauch, runden } from '@/domain/verbrauch';
+import { Elektroauto } from './Elektroauto';
 import { useHaus } from '@/hooks/useHaus';
 import { T } from '@/ui/texte';
 import { GeraeteZeile } from './GeraeteZeile';
@@ -25,6 +27,13 @@ export function Raumkarte({ raum, onAktivieren }: Props) {
   const etwasAn = z ? geraete.some((g) => !g.grundlast && z[g.id].an) : false;
   const etage = T.haus.etage[raum.etage];
   const letzte = zustand.letzteAenderung;
+  // Carport = Raum des Ladegeräts: Elektroauto-Bereich statt „Raum ausschalten“ (E-12)
+  const istCarport = geraetById(ELEKTROAUTO.ladegeraet).raum === raum.id;
+  const sperrGrund = (g: Geraet): 'unterwegs' | 'voll' | null => {
+    if (g.id !== ELEKTROAUTO.ladegeraet || !server) return null;
+    if (!server.auto.zuhause) return 'unterwegs';
+    return istVoll(akkuWhBei(server.auto, false, Date.now() + zustand.uhrVersatzMs)) ? 'voll' : null;
+  };
 
   return (
     <section
@@ -51,6 +60,7 @@ export function Raumkarte({ raum, onAktivieren }: Props) {
           <Skeleton className="h-6 w-16" />
         )}
       </div>
+      {istCarport && <Elektroauto />}
       <ul className="flex flex-col gap-1">
         {geraete.map((g) =>
           server ? (
@@ -62,6 +72,7 @@ export function Raumkarte({ raum, onAktivieren }: Props) {
               uhrVersatzMs={zustand.uhrVersatzMs}
               gesperrt={!bedienbar}
               impulsNr={letzte && letzte.geraete.includes(g.id) ? letzte.nr : null}
+              sperrGrund={sperrGrund(g)}
               onAktivieren={onAktivieren}
             />
           ) : (
@@ -73,6 +84,7 @@ export function Raumkarte({ raum, onAktivieren }: Props) {
           ),
         )}
       </ul>
+      {!istCarport && (
       <RaumAusKnopf
         raum={raum}
         etwasAn={etwasAn}
@@ -80,6 +92,7 @@ export function Raumkarte({ raum, onAktivieren }: Props) {
         beschaeftigt={istBeschaeftigt(zustand, 'raumAus', raum.id)}
         onAusschalten={() => raumAus(raum.id)}
       />
+      )}
     </section>
   );
 }

@@ -14,6 +14,7 @@ const SYMBOL: Record<Meldung['art'], { symbol: SymbolName; farbe: string }> = {
   minus: { symbol: 'pfeil-runter', farbe: 'text-delta-down' },
   info: { symbol: 'info', farbe: 'text-ink-secondary' },
   fehler: { symbol: 'warnung', farbe: 'text-danger' },
+  solar: { symbol: 'sonne', farbe: 'text-solar' },
 };
 
 function Toast({ meldung, onSchliessen }: { meldung: Meldung; onSchliessen: () => void }) {

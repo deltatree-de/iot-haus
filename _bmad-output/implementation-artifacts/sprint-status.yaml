@@ -1,5 +1,5 @@
 # generated: 2026-09-26 21:00
-# last_updated: 2026-09-26 21:00
+# last_updated: 2026-09-27 12:00
 # project: iot-haus
 # project_key: NOKEY
 # tracking_system: file-system
@@ -40,9 +40,15 @@
 # - Code zu 1.1–1.5, 2.1–2.3 und Teilen von 4.1 entsteht bereits parallel; Story-Dateien existieren noch
 #   nicht, daher Status 'backlog'. Beim Erstellen der Story-Datei vorhandenen Code gegen die ACs prüfen (M-2).
 # - Kein Merge auf main vor Abschluss von Epic 6 (Readiness-Auflage M-1).
+#
+# FORTSCHREIBUNG 2.1.0 (2026-09-27):
+# - Epic 8 „Elektroauto & Solaranlage“ gemäß planning-artifacts/sprint-change-proposal-2026-09-27.md §7/§10.
+# - Die Umsetzung hat auf Branch feature/iot-haus-2-1-eauto-solar bereits begonnen; daher stehen
+#   epic-8 und alle Stories 8-1 … 8-7 auf 'in-progress'. Reihenfolge 8.1 → 8.2 → 8.3 → (8.4 ∥ 8.5 ∥ 8.6) → 8.7.
+# - bmad-code-review nach Story 8.6; vor dem Merge auf main Stakeholder-Zustimmung per Dialog einholen.
 
 generated: 2026-09-26 21:00
-last_updated: 2026-09-26 21:00
+last_updated: 2026-09-27 12:00
 project: iot-haus
 project_key: NOKEY
 tracking_system: file-system
@@ -103,3 +109,13 @@ development_status:
   7-2-dokumentation-auf-stand-2-0-0: backlog
   7-3-abnahme-checkliste-2-0: backlog
   epic-7-retrospective: optional
+
+  epic-8: in-progress
+  8-1-domaene-carport-elektroauto-solaranlage-netzbilanz: in-progress
+  8-2-server-zustandsdienst-persistenz-konfiguration: in-progress
+  8-3-client-zustand-meldungen-und-ansagen: in-progress
+  8-4-kopf-und-uebersicht-mit-netzbilanz: in-progress
+  8-5-bereich-solaranlage-mit-sonnenwahl: in-progress
+  8-6-carport-raumkarte-elektroauto-hausansicht: in-progress
+  8-7-doku-abnahme-und-release-2-1-0: in-progress
+  epic-8-retrospective: optional

@@ -39,6 +39,8 @@
   --color-room-off: var(--c-room-off);
   --color-room-lit: var(--c-room-lit);
   --color-house-roof: var(--c-house-roof);
+  --color-solar: var(--c-solar);
+  --color-solar-soft: var(--c-solar-soft);
 }
 
 :root {

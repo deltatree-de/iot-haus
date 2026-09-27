@@ -52,18 +52,33 @@ export function naechsteMitternachtBerlin(ms: number): number {
   return mitternachtBerlin(morgen.toISOString().slice(0, 10));
 }
 
+export function leererTag(datum: string): Energie {
+  return { datum, wh: 0, bezugWh: 0, einspeisungWh: 0 };
+}
+
 /**
- * Integriert konstante Leistung über [vonMs, bisMs]. Liegt `bisMs` an einem anderen Berliner Tag
- * als `e.datum`, beginnt der Tag neu; nur die Zeit seit der letzten Mitternacht zählt (keine Historie).
+ * Integriert konstanten Verbrauch und konstante Solarerzeugung über [vonMs, bisMs] in drei Reihen:
+ * Verbrauch, Netzbezug, Einspeisung (FR-10, FR-42). Liegt `bisMs` an einem anderen Berliner Tag als
+ * `e.datum`, beginnt der Tag neu; nur die Zeit seit der letzten Mitternacht zählt (keine Historie).
  */
-export function integriere(e: Energie, leistungW: number, vonMs: number, bisMs: number): Energie {
+export function integriere(
+  e: Energie,
+  verbrauchW: number,
+  erzeugungW: number,
+  vonMs: number,
+  bisMs: number,
+): Energie {
   const datum = berlinDatum(bisMs);
   if (bisMs <= vonMs) {
-    return datum === e.datum ? e : { datum, wh: 0 };
+    return datum === e.datum ? e : leererTag(datum);
   }
-  if (datum !== e.datum) {
-    const start = Math.max(vonMs, mitternachtBerlin(datum));
-    return { datum, wh: (leistungW * (bisMs - start)) / MS_PRO_STUNDE };
-  }
-  return { datum, wh: e.wh + (leistungW * (bisMs - vonMs)) / MS_PRO_STUNDE };
+  const basis = datum === e.datum ? e : leererTag(datum);
+  const start = datum === e.datum ? vonMs : Math.max(vonMs, mitternachtBerlin(datum));
+  const stunden = (bisMs - start) / MS_PRO_STUNDE;
+  return {
+    datum,
+    wh: basis.wh + verbrauchW * stunden,
+    bezugWh: basis.bezugWh + Math.max(0, verbrauchW - erzeugungW) * stunden,
+    einspeisungWh: basis.einspeisungWh + Math.max(0, erzeugungW - verbrauchW) * stunden,
+  };
 }

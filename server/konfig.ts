@@ -2,24 +2,35 @@
 import type { Logger } from './log';
 
 export const STANDARD_STROMPREIS = 0.35;
+export const STANDARD_EINSPEISEVERGUETUNG = 0.08;
 
 /**
- * Strompreis in €/kWh aus `STROMPREIS_EUR_PRO_KWH` (Dezimalpunkt). Ungültige oder negative Werte
- * ergeben 0,35 und eine Warnung; ein fehlender Wert ist der normale Standardfall (Info-Zeile).
+ * Betrag in €/kWh aus einer Umgebungsvariable (Dezimalpunkt). Ungültige oder negative Werte ergeben
+ * den Standard und eine Warnung `‹ereignis›_ungueltig`; ein fehlender Wert ist der normale Standardfall.
  */
-export function leseStrompreis(wert: string | undefined, log: Logger): number {
+export function leseEuroProKwh(ereignis: string, wert: string | undefined, standard: number, log: Logger): number {
   if (wert === undefined || wert.trim() === '') {
-    log.info('strompreis', { quelle: 'standard', wert: STANDARD_STROMPREIS });
-    return STANDARD_STROMPREIS;
+    log.info(ereignis, { quelle: 'standard', wert: standard });
+    return standard;
   }
   const text = wert.trim();
   const zahl = Number(text);
   if (!/^\d+(\.\d+)?$/.test(text) || !Number.isFinite(zahl) || zahl < 0) {
-    log.warn('strompreis_ungueltig', { wert: text.slice(0, 32), ersatz: STANDARD_STROMPREIS });
-    return STANDARD_STROMPREIS;
+    log.warn(`${ereignis}_ungueltig`, { wert: text.slice(0, 32), ersatz: standard });
+    return standard;
   }
-  log.info('strompreis', { quelle: 'umgebung', wert: zahl });
+  log.info(ereignis, { quelle: 'umgebung', wert: zahl });
   return zahl;
+}
+
+/** Strompreis aus `STROMPREIS_EUR_PRO_KWH` (FR-9). */
+export function leseStrompreis(wert: string | undefined, log: Logger): number {
+  return leseEuroProKwh('strompreis', wert, STANDARD_STROMPREIS, log);
+}
+
+/** Einspeisevergütung aus `EINSPEISEVERGUETUNG_EUR_PRO_KWH` (2.1, E-22). */
+export function leseEinspeiseverguetung(wert: string | undefined, log: Logger): number {
+  return leseEuroProKwh('einspeiseverguetung', wert, STANDARD_EINSPEISEVERGUETUNG, log);
 }
 
 export interface Konfig {
