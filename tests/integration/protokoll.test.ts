@@ -134,6 +134,41 @@ describe('Verteilung (FR-16, FR-19, FR-22)', () => {
   });
 });
 
+describe('Elektroauto und Sonne über das Protokoll (2.1)', () => {
+  it('Snapshot enthält Auto, Sonne und Einspeisevergütung', async () => {
+    const c = await client();
+    const s = c.nachrichten[0];
+    expect(s.typ === 'snapshot' && s.auto.zuhause).toBe(true);
+    expect(s.typ === 'snapshot' && s.sonne.stufe).toMatch(/^(nacht|bedeckt|wolkig|heiter|sonnig)$/);
+    expect(s.typ === 'snapshot' && s.einspeiseverguetung).toBe(0.08);
+    expect(s.typ === 'snapshot' && Object.keys(s.zustand)).toContain('carport.wallbox');
+    expect(s.typ === 'snapshot' && typeof s.energie.bezugWh).toBe('number');
+  });
+
+  it('Sonne wird an alle verteilt', async () => {
+    const [a, b] = [await client(), await client()];
+    a.sende({ typ: 'sonne', id: 'so1', stufe: 'heiter' });
+    const n = await b.warte<Extract<ServerNachricht, { typ: 'aenderung' }>>((m) => m.typ === 'aenderung' && m.ursache.befehlId === 'so1');
+    expect(n.sonne?.stufe).toBe('heiter');
+    expect(n.ursache).toEqual({ art: 'sonne', ref: 'heiter', befehlId: 'so1' });
+    a.sende({ typ: 'sonne', id: 'so2', stufe: 'nacht' });
+    await a.warte((m) => m.typ === 'bestaetigt' && m.befehlId === 'so2');
+  });
+
+  it('Wegfahren, Laden unterwegs → NICHT_MOEGLICH, Zurückkommen', async () => {
+    const c = await client();
+    c.sende({ typ: 'auto', id: 'au1', zuhause: false });
+    const weg = await c.warte<Extract<ServerNachricht, { typ: 'aenderung' }>>((m) => m.typ === 'aenderung' && m.ursache.befehlId === 'au1');
+    expect(weg.auto?.zuhause).toBe(false);
+    c.sende({ typ: 'schalten', id: 'au2', geraet: 'carport.wallbox', an: true });
+    const f = await c.warte<Extract<ServerNachricht, { typ: 'fehler' }>>((m) => m.typ === 'fehler' && m.befehlId === 'au2');
+    expect(f.code).toBe('NICHT_MOEGLICH');
+    c.sende({ typ: 'auto', id: 'au3', zuhause: true });
+    const zurueck = await c.warte<Extract<ServerNachricht, { typ: 'aenderung' }>>((m) => m.typ === 'aenderung' && m.ursache.befehlId === 'au3');
+    expect(zurueck.auto?.zuhause).toBe(true);
+  });
+});
+
 describe('Befehlsprüfung (FR-18)', () => {
   it.each([
     ['ungültiges JSON', '{kaputt', 'UNGUELTIGES_JSON'],

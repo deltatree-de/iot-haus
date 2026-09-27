@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { leseKonfig, leseStrompreis } from './konfig';
+import { leseEinspeiseverguetung, leseKonfig, leseStrompreis } from './konfig';
 import { stillerLog } from './log';
 import { hostErlaubt, hostname, ursprungErlaubt } from './ursprung';
 
@@ -30,6 +30,21 @@ describe('Strompreis (FR-9)', () => {
     expect(leseStrompreis(undefined, log)).toBe(0.35);
     expect(leseStrompreis('', stillerLog)).toBe(0.35);
     expect(log.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('Einspeisevergütung (2.1, AC-19)', () => {
+  it.each([
+    [undefined, 0.08, false],
+    ['0', 0, false],
+    ['0.1', 0.1, false],
+    ['abc', 0.08, true],
+    ['-1', 0.08, true],
+    ['0,08', 0.08, true],
+  ])('%s → %d', (wert, erwartet, warnt) => {
+    const log = logSpion();
+    expect(leseEinspeiseverguetung(wert, log)).toBe(erwartet);
+    expect(log.warn.mock.calls.some((c) => c[0] === 'einspeiseverguetung_ungueltig')).toBe(warnt);
   });
 });
 

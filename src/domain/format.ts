@@ -59,6 +59,16 @@ export function restzeit(sekunden: number): string {
   return `noch ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** Akkustand „64 %“ aus ganzen Prozent */
+export function akku(prozent: number): string {
+  return `${zahl(prozent, 0)}${EINHEIT}%`;
+}
+
+/** Spitzenleistung „9,8 kWp“ aus Watt */
+export function kwp(watt: number): string {
+  return `${zahl(watt / 1000, 1)}${EINHEIT}kWp`;
+}
+
 /** „42 %“ */
 export function prozent(anteil: number): string {
   return `${zahl(anteil * 100, 0)}${EINHEIT}%`;

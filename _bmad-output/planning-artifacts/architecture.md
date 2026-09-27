@@ -16,10 +16,14 @@ project_name: 'iot-haus'
 user_name: 'Deltatree'
 date: '2026-09-26'
 author: 'Winston (BMAD Architect), headless'
-version: '2.0.0'
+version: '2.1.0'
+updated: '2026-09-27'
+changeProposal: _bmad-output/planning-artifacts/sprint-change-proposal-2026-09-27.md
 ---
 
-# Architektur-Entscheidungsdokument – IoT-Haus 2.0
+# Architektur-Entscheidungsdokument – IoT-Haus 2.0 / 2.1
+
+> **Stand 2.1.0 (2026-09-27):** Erweiterung um Elektroauto, Solaranlage und Netzbilanz gemäß `sprint-change-proposal-2026-09-27.md`. Details in **§3.12**, Entscheidungen **AD-23 … AD-27** (§9), Dateiliste **§8.4**. Wo Kapitel 1–8 Zahlen des Stands 2.0 nennen (28 Geräte, 6 Räume, 75,3 W, 12.978 W), gelten für 2.1 die Werte aus §3.12 (29 Geräte, 7 Räume inkl. Carport, 78,3 W, 23.978 W).
 
 Dieses Dokument ist die verbindliche technische Grundlage für die Umsetzung von PRD `prd.md` (FR-1 bis FR-35, NFR-1 bis NFR-10). Es wurde headless erstellt: Der Stakeholder steht nicht zur Verfügung, alle Fragen hat der Architekt entschieden und in §9 (AD-01 ff.) protokolliert. Nichts wird vertagt; was nicht gebaut wird, steht im PRD §6. Leitlinie: **langweilig und schlank** – keine neue Laufzeitabhängigkeit, keine neue Infrastruktur, ein Container wie bisher.
 
@@ -35,7 +39,7 @@ Alle Workflow-Menüs (A/P/C) wurden mit **[C] Fortfahren** beantwortet; Advanced
 
 | Gruppe | FR | Architektonische Konsequenz |
 |---|---|---|
-| Haus & Katalog | FR-1…5 | Ein gemeinsamer, typisierter Katalog (6 Räume, 28 Geräte, 4 Szenen) für Server und Client; Auto-Aus als Server-Timer mit Wiederaufnahme nach Neustart. |
+| Haus & Katalog | FR-1…5 | Ein gemeinsamer, typisierter Katalog (6 Räume, 28 Geräte, 4 Szenen; **2.1: 7 Räume inkl. Carport, 29 Geräte**) für Server und Client; Auto-Aus als Server-Timer mit Wiederaufnahme nach Neustart. |
 | Live-Verbrauch | FR-6…13 | Reine Rechenfunktionen (Summen, Laststufe, Standby, Kosten) im Domänenmodul, im Client auf den Serverzustand angewandt; Tagesenergie wird **nur** im Server integriert (Zeitzone Europe/Berlin). |
 | Echtzeit & Autorität | FR-14…21 | `server.js` wird vom offenen MQTT-Proxy zum **Zustandsdienst**: Befehle rein, Änderungen raus, retained Persistenz im Broker, Snapshot beim Verbinden, strikt sequenzielle Verarbeitung, Whitelist. |
 | Szenen | FR-22…24 | Szenen als Daten im Katalog, serverseitig als *eine* Änderung angewandt. |
@@ -127,7 +131,7 @@ Der Node-Server ist der **einzige** MQTT-Client. Browser sprechen nie MQTT, sond
 **Serverzustand (im Speicher, autoritativ):**
 ```ts
 type GeraeteZustand = { an: boolean; seit: number };           // seit = ms epoch der letzten Zustandsänderung
-type HausZustand   = Record<GeraetId, GeraeteZustand>;          // immer alle 28 Geräte
+type HausZustand   = Record<GeraetId, GeraeteZustand>;          // immer alle Geräte (2.0: 28, 2.1: 29)
 type Energie       = { datum: string; wh: number };             // datum 'YYYY-MM-DD' (Europe/Berlin), wh ungerundet
 // intern zusätzlich: energieStand: number (ms, bis wohin integriert wurde)
 ```
@@ -417,6 +421,164 @@ erstelleServer(opts: {
 
 Abhängigkeiten: Protokolltypen (1) sind Vertrag für 3 und 5; Farb-Tokens (5) sind Voraussetzung für den Kontrasttest; CI (6) setzt die npm-Scripts aus 2 voraus.
 
+### 3.12 Elektroauto, Solaranlage, Netzbilanz (2.1)
+
+Quelle: `sprint-change-proposal-2026-09-27.md` §5.3. Leitlinie bleibt: langweilig und schlank, **ein Änderungspfad**, keine neue Laufzeitabhängigkeit, keine neue Infrastruktur.
+
+**Kennzahlen 2.1:** 29 Geräte / 7 Räume (6 im Haus + Carport) · Standby-Anteil Ausgangszustand 13,3 W · Hausverbrauch Ausgangszustand 78,3 W („78 W“) · „Alles an“ 23.978 W · Solar-Erzeugung je Stufe 0 / 980 / 3.430 / 6.370 / 8.330 W · Laden 50 % → 100 % = 9.818 s.
+
+#### 3.12.1 Domänenmodell (exakt)
+
+`src/domain/katalog.ts`
+```ts
+export type Etage = 'EG' | 'OG' | 'Außen';
+export type Kategorie = … | 'mobilitaet';               // KATEGORIE_NAMEN.mobilitaet = 'Mobilität'
+export type SymbolName = … | 'wallbox';
+RAEUME += { id: 'carport', name: 'Carport', etage: 'Außen' }            // als letzter Eintrag
+GERAETE += { id: 'carport.wallbox', name: 'Wallbox', raum: 'carport', kategorie: 'mobilitaet',
+             symbol: 'wallbox', betriebW: 11000, standbyW: 3, grundlast: false, autoAusS: null }  // letzter Eintrag
+export const HAUS_ETAGEN = ['OG', 'EG'] as const;        // Hausansicht-Raster; 'Außen' separat
+```
+
+`src/domain/elektroauto.ts` (neu, rein, ohne Imports außer `./katalog`)
+```ts
+export const ELEKTROAUTO = {
+  name: 'Elektroauto',
+  kapazitaetWh: 60_000,
+  fahrtWh: 9_000,            // pauschal je Fahrt, abgezogen bei Rückkehr; zugleich Mindeststand zum Wegfahren
+  startAkkuWh: 30_000,
+  ladegeraet: 'carport.wallbox' as GeraetId,
+} as const;
+
+export interface AutoZustand {
+  zuhause: boolean;
+  akkuWh: number;            // Akkustand in Wh zum Zeitpunkt `stand` (ungerundet, 0 … kapazitaetWh)
+  stand: number;             // ms epoch, bis wann akkuWh integriert ist
+}
+
+export function ladeleistungW(): number;                                      // = betriebW der Wallbox
+export function akkuWhBei(auto: AutoZustand, laedt: boolean, jetzt: number): number;
+  // laedt && zuhause ? min(kap, akkuWh + P·max(0, jetzt − stand)/3_600_000) : akkuWh
+export function akkuProzent(wh: number): number;                              // Math.floor(wh / kap * 100 + 1e-9), 0…100
+export function restLadezeitMs(auto: AutoZustand, laedt: boolean, jetzt: number): number | null;
+export function darfLaden(auto: AutoZustand, jetzt: number): boolean;         // zuhause && akkuWhBei(auto,false,jetzt) < kap − 0,5
+export function darfWegfahren(auto: AutoZustand, laedt: boolean, jetzt: number): boolean; // zuhause && akku ≥ fahrtWh
+export function nachRueckkehr(akkuWh: number): number;                        // max(0, akkuWh − fahrtWh)
+export function ausgangsAuto(jetzt: number): AutoZustand;                     // { zuhause: true, akkuWh: 30_000, stand: jetzt }
+```
+
+`src/domain/solar.ts` (neu)
+```ts
+export const SOLARANLAGE = { spitzenleistungW: 9_800 } as const;
+export const SONNENSTUFEN = [
+  { id: 'nacht',   name: 'Nacht',   anteil: 0 },
+  { id: 'bedeckt', name: 'Bedeckt', anteil: 0.10 },
+  { id: 'wolkig',  name: 'Wolkig',  anteil: 0.35 },
+  { id: 'heiter',  name: 'Heiter',  anteil: 0.65 },
+  { id: 'sonnig',  name: 'Sonnig',  anteil: 0.85 },
+] as const;
+export type SonnenStufe = (typeof SONNENSTUFEN)[number]['id'];
+export interface SonnenZustand { stufe: SonnenStufe; seit: number }
+export function istSonnenStufe(w: unknown): w is SonnenStufe;
+export function sonnenstufeById(id: SonnenStufe): { id; name; anteil };
+export function erzeugung(stufe: SonnenStufe): number;          // 9_800 × anteil (ungerundet)
+export function ausgangsSonne(jetzt: number): SonnenZustand;    // { stufe: 'nacht', seit: jetzt }
+```
+
+`src/domain/verbrauch.ts` (Ergänzungen, Bestehendes unverändert)
+```ts
+export interface Netzbilanz { verbrauchW: number; erzeugungW: number; bezugW: number; einspeisungW: number }
+/** Aus gerundeten Anzeigewerten (FR-41): genau einer von bezugW/einspeisungW ist > 0 oder beide 0. */
+export function netzbilanz(verbrauchGerundet: number, erzeugungGerundet: number): Netzbilanz;
+export function ertragProStunde(einspeisungW: number, verguetung: number): number;
+export function tagesKosten(e: Energie, strompreis: number, verguetung: number): number; // bezug×preis − einsp×verg (darf < 0)
+export function tagesErzeugungWh(e: Energie): number;                                 // wh − bezugWh + einspeisungWh
+```
+
+- `src/domain/energie.ts`: `integriere(e, verbrauchW, erzeugungW, vonMs, bisMs): Energie` integriert **drei** Reihen (`wh += v·dt`; `bezugWh += max(0, v−e)·dt`; `einspeisungWh += max(0, e−v)·dt`), Tageswechsel wie bisher für alle drei. Ungerundete Werte.
+- `src/domain/befehle.ts`: `FELDER` + `sonne: ['typ','id','stufe']`, `auto: ['typ','id','zuhause']`. `pruefeBefehl` prüft `stufe` via `istSonnenStufe` (sonst `UNGUELTIGER_BEFEHL`) und `zuhause` als boolean. Neu (rein): `pruefeRegel(zustand, auto, befehl, jetzt): 'NICHT_MOEGLICH' | null` – Wallbox-Einschalten ohne `darfLaden`, `auto zuhause:false` ohne `darfWegfahren` (nur wenn aktuell zu Hause). `ausgangszustand()` bleibt (Wallbox *Aus*). Neu `erzwingeLadeRegeln(zustand, auto, jetzt)`: setzt das Wallbox-Ziel *Aus*, wenn das Auto unterwegs oder der Akku voll ist (für Restore und Wegfahren).
+- `src/domain/szenen.ts`: keine Logikänderung. Die Wallbox ist Nicht-Grundlast → „Alles aus“/„Gute Nacht“ beenden das Laden; keine Szene startet es; Szenen ändern weder Sonnenlage noch Ort des Autos.
+- `src/domain/format.ts`: `akku(prozent) → „64 %“`, `kwp(w) → „9,8 kWp“`.
+
+#### 3.12.2 WebSocket-Protokoll (`src/domain/protokoll.ts`)
+
+```ts
+export interface Energie { datum: string; wh: number; bezugWh: number; einspeisungWh: number }
+
+export type Befehl =
+  | { typ: 'schalten'; id: string; geraet: GeraetId; an: boolean }
+  | { typ: 'szene'; id: string; szene: SzeneId }
+  | { typ: 'raumAus'; id: string; raum: RaumId }
+  | { typ: 'sonne'; id: string; stufe: SonnenStufe }        // neu 2.1
+  | { typ: 'auto'; id: string; zuhause: boolean };          // neu 2.1
+
+export type UrsachenArt = 'geraet' | 'szene' | 'raumAus' | 'autoAus' | 'sonne' | 'auto' | 'akkuVoll';
+// ref: sonne → Stufe; auto → 'weg' | 'zurueck'; akkuVoll → Geräte-ID der Wallbox
+
+export type FehlerCode = … | 'NICHT_MOEGLICH';   // Meldung: „Aktion ist im aktuellen Zustand nicht möglich.“
+
+export type ServerNachricht =
+  | { typ: 'snapshot'; version; zustand: HausZustand; auto: AutoZustand; sonne: SonnenZustand;
+      energie: Energie; strompreis: number; einspeiseverguetung: number; serverZeit: number }
+  | { typ: 'aenderung'; ursache: Ursache; geraete: Partial<HausZustand>;   // darf {} sein
+      auto?: AutoZustand; sonne?: SonnenZustand; energie: Energie }        // Felder nur bei Änderung
+  | { typ: 'bestaetigt'; befehlId: string; geaendert: boolean }
+  | { typ: 'fehler'; befehlId: string | null; code: FehlerCode; meldung: string }
+  | { typ: 'energie'; energie: Energie; auto: AutoZustand; serverZeit: number };
+```
+
+**Kompatibilitätsregeln:**
+1. Serverversion 2.1.0 ≠ Client 2.0.0 → alter Tab zeigt „Neue Version verfügbar“, verarbeitet nur noch Snapshots, sendet nichts (bestehend, FR-18). Der 2.0-Reducer ignoriert unbekannte Felder und die Zusatz-ID `carport.wallbox` ohne Absturz (er iteriert über seinen eigenen Katalog) – abgesichert per Test mit 2.0-Fixture (T-24).
+2. Der 2.1-Client liest fehlende Felder defensiv: `auto` fehlt → `ausgangsAuto`, `sonne` fehlt → `nacht`, `einspeiseverguetung` fehlt → 0,08, `bezugWh` fehlt → `wh`, `einspeisungWh` fehlt → 0.
+3. Keine neuen Nachrichtentypen; nur neue Befehle, Felder, Ursachen und ein Fehlercode (Ausnahme in §4.4 vermerkt).
+4. Grenzen unverändert: 4-KB-Limit, `maxPayload` 64 KiB, Token-Bucket 100 / 20 pro s je Verbindung, 200 Ablehnungen in Folge → Trennung, max. 100 Verbindungen, Origin-/Host-Prüfung.
+
+**Ablauf je Befehl (Ergänzung zu §3.5 Schritt 4/5):** nach `pruefeBefehl` → `pruefeRegel` (Zustand jetzt) → bei Verstoß `fehler NICHT_MOEGLICH` mit `befehlId`, Log `befehl typ=… ergebnis=NICHT_MOEGLICH` (gedrosselt wie bisher), Zustand unverändert.
+
+#### 3.12.3 Zustandsdienst (`server/zustandsdienst.ts`)
+
+- Zusätzliche Felder `auto: AutoZustand`, `sonne: SonnenZustand`, `akkuVollTimer`.
+- **Ein Änderungspfad bleibt:** `aendere(aenderung: { ziele?: Partial<Record<GeraetId, boolean>>; auto?: (a: AutoZustand) => AutoZustand; sonne?: SonnenStufe }, ursache)`. Ablauf: `integriereBis(jetzt)` (Energie **und** Akku) → Geräteziele + Auto + Sonne anwenden → `erzwingeLadeRegeln` → Diff bilden → ohne Änderung `false` → **eine** `aenderung` (nur geänderte Teile) → Persistenz der geänderten Teile → Akku-voll-Timer neu planen oder löschen.
+- `fuehreAus(befehl)` liefert `{ ok: true; geaendert: boolean } | { ok: false; code: 'NICHT_MOEGLICH' }`.
+- **`integriereBis(jetzt)`:** wie bisher `von = max(stand, jetzt − MAX_INTEGRATION_MS)`; Energie mit `hausverbrauch` und `erzeugung(sonne.stufe)`; Akku: wenn Wallbox *An* und Auto zu Hause, `akkuWh = min(kap, akkuWh + 11.000 · (jetzt − von) / 3.600.000)`, `auto.stand = jetzt`. Die geladene Energie entspricht damit exakt der für die Wallbox integrierten Energie.
+- **Akku-voll-Timer** (analog Auto-Aus, AD-09/AD-25): bei Wallbox *An* `setTimeout((kap − akkuWh) / P · 3.600.000)`; beim Feuern `aendere({ ziele: { wallbox: false } }, { art: 'akkuVoll', ref: wallbox, befehlId: null })`, danach `akkuWh = kap` (Rest ≤ 0,5 Wh wird auf `kap` gesetzt), Logzeile `akku_voll`. Neu geplant nach jedem Energie-Takt.
+- **Energie-Takt (60 s):** integriert (Energie + Akku), persistiert Energie **und** Auto, sendet `energie` inkl. `auto`.
+- **Start/Restore:** `auto.stand = jetzt` (Ausfallzeit lädt nicht, wie FR-10); `erzwingeLadeRegeln` (Wallbox aus, wenn unterwegs oder voll) vor `speichereAlles()`; Akku-voll-Timer planen.
+- **Stopp (SIGTERM):** integrieren, Energie und Auto persistieren (bestehendes 2-s-Fenster).
+- `server/ws-verbindungen.ts`: `MELDUNGEN.NICHT_MOEGLICH`, Auswertung des `fuehreAus`-Ergebnisses.
+
+#### 3.12.4 MQTT-Topics (retained, QoS 1, nur der Server)
+
+| Topic | Payload | Geschrieben |
+|---|---|---|
+| `iot-haus/v2/geraet/carport.wallbox/zustand` | `{ "v": 1, "an": false, "seit": … }` (bestehendes Schema) | wie alle Geräte |
+| `iot-haus/v2/auto/zustand` **(neu)** | `{ "v": 1, "zuhause": true, "akkuWh": 30000, "stand": 1790000000000 }` | bei Änderung, jedem Energie-Takt, Stopp, `speichereAlles` |
+| `iot-haus/v2/solar/sonne` **(neu)** | `{ "v": 1, "stufe": "nacht", "seit": 1790000000000 }` | bei Änderung, `speichereAlles` |
+| `iot-haus/v2/energie/heute` **(v: 2)** | `{ "v": 2, "datum": "2026-09-27", "wh": 3420.5, "bezugWh": 2100.2, "einspeisungWh": 4300.9, "stand": … }` | wie bisher |
+
+**Validierung beim Restore** (`uebernimmGespeichert` in `server/mqtt-speicher.ts`): Auto – `zuhause` boolean, `akkuWh`/`stand` endlich ≥ 0, `akkuWh` auf `[0, kap]` begrenzt; Sonne – bekannte Stufe, `seit` endlich ≥ 0; Energie – `v: 1` (nur `wh`) wird als `bezugWh = wh, einspeisungWh = 0` übernommen (2.0 hatte keine Solaranlage), `v: 2` verlangt alle drei Werte endlich ≥ 0. Sonst `restore_ignoriert topic=…` und Ausgangswert. Präfix `iot-haus/v2` bleibt (kein Schemabruch). Neue Funktionen `speichereAuto`, `speichereSonne`; Typ `Gespeichert` erweitert.
+
+#### 3.12.5 Konfiguration
+
+- `server/konfig.ts`: `leseStrompreis` wird zu `leseEuroProKwh(name, wert, standard, log)` verallgemeinert; `leseStrompreis`/`leseEinspeiseverguetung` sind dünne Aufrufe. **`EINSPEISEVERGUETUNG_EUR_PRO_KWH`**, Standard `0.08`, Regeln wie der Strompreis (leer → INFO `einspeiseverguetung quelle=standard`, ungültig/negativ → WARN `einspeiseverguetung_ungueltig`, `0` gültig).
+- `server/index.ts` / `server/app.ts`: Option `einspeiseverguetung` an `erstelleServer`; der Snapshot enthält sie.
+- Spitzenleistung, Akku und Wallbox sind Katalogwerte, **keine** Umgebungsvariablen.
+
+#### 3.12.6 Client (`src/client/hausReducer.ts`, `src/hooks/useHaus.tsx`)
+
+- `ServerDaten` + `auto`, `sonne`, `einspeiseverguetung`; `snapshot` setzt sie (defensiv, Regel 2 in §3.12.2).
+- `aenderung`: Geräte wie bisher; `auto`/`sonne` übernehmen; die Frühausstiegsregel „keine Geräte → nur Energie“ gilt nur, wenn **auch** `auto` und `sonne` fehlen. Ursachen-Whitelist um `sonne`, `auto`, `akkuVoll` erweitert.
+- `energie`: übernimmt `energie` und `auto`.
+- `Ausstehend.art` + `'sonne' | 'auto'`; `sonne` mit `zielStufe` (optimistische Auswahl wie Einzelschalter, FR-21), `auto` ohne optimistische Anzeige (wie Szene).
+- Neue Selektoren: `anzeigeSonne(z) → { stufe, beschaeftigt }`, `akkuJetzt(z, jetzt)` (über `akkuWhBei` + `uhrVersatzMs`, dieselbe Domänenfunktion wie im Server – AD-24).
+- `MeldungsArt` + `'solar'` (Symbol Sonne, Farbe `solar`).
+- `HausKontext` + `sonne(stufe)`, `auto(zuhause)`; `sende` unverändert (Sperre bei nicht bedienbar/beschäftigt).
+- `fehlerMeldung` + Texte für `sonne`/`auto`; `NICHT_MOEGLICH` nutzt denselben Weg wie jeder `fehler` mit `befehlId`.
+
+#### 3.12.7 Umsetzungsreihenfolge 2.1
+
+Epic 8: Domäne (8.1) → Server (8.2) → Client-Zustand (8.3) → UI (8.4 ∥ 8.5 ∥ 8.6) → Doku/Release 2.1.0 (8.7), analog §3.11. JS-Budget-Erwartung ≤ 126 kB, harte Grenze 200 kB unverändert.
+
 ---
 
 ## 4. Umsetzungsmuster und Konsistenzregeln
@@ -449,6 +611,7 @@ Abhängigkeiten: Protokolltypen (1) sind Vertrag für 3 und 5; Farb-Tokens (5) s
 - Jede Zustandsänderung – egal ob Nutzer, Szene, Raum oder Auto-Aus – läuft durch **eine** Funktion `fuehreAus(befehl, ursache)` im Zustandsdienst (ein Pfad für Integration, Timer, Broadcast, Persistenz).
 - Eine Änderung = genau eine `aenderung`-Nachricht (FR-16).
 - Keine weiteren WS-Nachrichtentypen ohne Änderung dieses Dokuments.
+- **Ausnahme 2.1 (dokumentiert, §3.12.2):** neue Befehle `sonne` und `auto`, optionale Felder `auto`/`sonne` in `aenderung`, `auto` in `energie`, `auto`/`sonne`/`einspeiseverguetung` im Snapshot, Ursachen `sonne`/`auto`/`akkuVoll` und Fehlercode `NICHT_MOEGLICH` – **keine** neuen Nachrichtentypen. Auch Auto- und Sonnenänderungen laufen über denselben Änderungspfad (`aendere`); Wegfahren inkl. Laden-Ende ist genau eine `aenderung` (AD-23).
 
 ### 4.5 Fehlerbehandlung und Logging
 
@@ -477,6 +640,7 @@ iot-haus/
 ├── .github/
 │   ├── workflows/ci-release.yml            NEU (ersetzt docker-publish.yml, release.yml)
 │   ├── release-hinweise/v2.0.0.md          NEU (Upgrade-Hinweis 2.0.0)
+│   ├── release-hinweise/v2.1.0.md          NEU 2.1 (Pflicht für den Release-Job)
 │   └── copilot-instructions.md             AKTUALISIERT
 ├── docker/
 │   ├── mosquitto.conf                      GEÄNDERT (autosave)
@@ -496,7 +660,7 @@ iot-haus/
 │   ├── ws-verbindungen.ts                  Clients, Parse, Broadcast, Heartbeat
 │   ├── ursprung.ts (+ .test.ts)            Origin-Prüfung
 │   ├── health.ts                           /api/health
-│   ├── konfig.ts (+ .test.ts)              Env-Parsing (Port, Broker, Strompreis)
+│   ├── konfig.ts (+ .test.ts)              Env-Parsing (Port, Broker, Strompreis, 2.1: Einspeisevergütung)
 │   ├── version.ts                          package.json-Version
 │   └── log.ts                              Einzeilen-Logger
 ├── src/
@@ -507,7 +671,9 @@ iot-haus/
 │   │   ├── energie.ts                      berlinDatum, naechsteMitternachtBerlin, integriere
 │   │   ├── befehle.ts                      pruefeBefehl, wendeAn, ausgangszustand
 │   │   ├── protokoll.ts                    Befehl, ServerNachricht, FehlerCode, Grenzen (4096)
-│   │   ├── format.ts                       de-DE-Formatierer
+│   │   ├── format.ts                       de-DE-Formatierer (2.1: + akku, kwp)
+│   │   ├── elektroauto.ts (+ .test.ts)     NEU 2.1: ELEKTROAUTO, AutoZustand, Akku-/Laderegeln
+│   │   ├── solar.ts (+ .test.ts)           NEU 2.1: SOLARANLAGE, SONNENSTUFEN, erzeugung
 │   │   └── *.test.ts
 │   ├── client/
 │   │   ├── verbindung.ts (+ .test.ts)      HausVerbindung (WS, Backoff, Lebenszeichen)
@@ -524,6 +690,7 @@ iot-haus/
 │   │   ├── Hausansicht.tsx, RaumFlaeche.tsx, VerbrauchNachRaum.tsx
 │   │   ├── Raumkarte.tsx, GeraeteZeile.tsx, Schalter.tsx, RaumAusKnopf.tsx
 │   │   ├── GrundlastDialog.tsx, Meldungen.tsx, LiveRegion.tsx, Skeleton.tsx, Symbol.tsx
+│   │   ├── NetzZeile.tsx, Solaranlage.tsx, SonnenWahl.tsx, Elektroauto.tsx, CarportFlaeche.tsx   NEU 2.1
 │   │   └── *.test.tsx
 │   ├── ui/
 │   │   ├── farbtokens.ts                   Tokens hell/dunkel + Prüfpaare
@@ -584,7 +751,10 @@ iot-haus/
 | NFR-6, NFR-7 | `vitest.config.mts`, Tests, `server/log.ts` |
 | NFR-8, NFR-3 | nur Standard-Web-APIs (kein `randomUUID`, natives `<dialog>` in allen Zielbrowsern), Abnahme-Checkliste |
 | NFR-9 | Compose-Dateien, `server/konfig.ts`, Release-Hinweis |
-| NFR-10 | `docs/abnahme-2.0.md` |
+| NFR-10 | `docs/abnahme-2.0.md`, 2.1: `docs/abnahme-2.1.md` |
+| FR-36 … FR-39 (2.1) | `src/domain/katalog.ts`, `elektroauto.ts`, `befehle.ts`, `server/zustandsdienst.ts`, `server/mqtt-speicher.ts`, `Elektroauto.tsx`, `Raumkarte.tsx`, `GeraeteZeile.tsx`, `CarportFlaeche.tsx` |
+| FR-40 … FR-42 (2.1) | `src/domain/solar.ts`, `verbrauch.ts`, `energie.ts`, `server/zustandsdienst.ts`, `server/konfig.ts`, `NetzZeile.tsx`, `Kopfbereich.tsx`, `Uebersicht.tsx`, `Solaranlage.tsx`, `SonnenWahl.tsx` |
+| FR-43, FR-44 (2.1) | `Hausansicht.tsx`, `App.tsx`, `src/ui/*`, `package.json`, `.github/release-hinweise/v2.1.0.md`, `docs/abnahme-2.1.md` |
 
 ---
 
@@ -633,6 +803,7 @@ Alle 35 FR und 10 NFR sind in §5.4 einem Ort und in §3.10 einem Test oder eine
 | `HOSTNAME` | `0.0.0.0` | Bind-Adresse |
 | `MQTT_BROKER_HOST` / `MQTT_BROKER_PORT` | `127.0.0.1` / `1883` | Broker |
 | `STROMPREIS_EUR_PRO_KWH` | `0.35` | Dezimalpunkt; ungültig/negativ/leer → 0,35 + Logzeile `strompreis_ungueltig` (FR-9). `0` ist gültig. |
+| `EINSPEISEVERGUETUNG_EUR_PRO_KWH` (2.1) | `0.08` | Regeln wie Strompreis; leer → INFO `einspeiseverguetung quelle=standard`, ungültig/negativ → 0,08 + WARN `einspeiseverguetung_ungueltig`. `0` ist gültig. |
 | `NODE_ENV` | `production` im Image | `!== 'production'` → Next-Dev-Modus |
 | `NEXT_PUBLIC_MQTT_BROKER_URL` | – | wird ignoriert (NFR-9) |
 
@@ -699,6 +870,26 @@ Alle 35 FR und 10 NFR sind in §5.4 einem Ort und in §3.10 einem Test oder eine
 
 `server/{index,app,zustandsdienst,mqtt-speicher,ws-verbindungen,ursprung,health,konfig,version,log}.ts` · `src/domain/{katalog,szenen,verbrauch,energie,befehle,protokoll,format}.ts` · `src/client/{verbindung,hausReducer}.ts` · `src/hooks/{useHaus.tsx,useHochzaehlen,useRestzeit,useMeldungen,useAnsage,useTheme,useReduzierteBewegung}.ts` · `src/components/*` (§5.1) · `src/ui/{farbtokens,themeSkript}.ts` · Tests (§3.10) · `tsconfig.server.json` · `vitest.config.mts` · `vitest.setup.ts` · `scripts/{pruefe-js-budget,smoke-container,dev-broker}.mjs` · `.github/workflows/ci-release.yml` · `.github/release-hinweise/v2.0.0.md` · `docs/abnahme-2.0.md`.
 
+### 8.4 Änderungsliste 2.1.0 (Elektroauto & Solaranlage)
+
+Quelle: `sprint-change-proposal-2026-09-27.md` §8.
+
+**Neu**
+- `src/domain/elektroauto.ts` (+ Test), `src/domain/solar.ts` (+ Test)
+- `src/components/NetzZeile.tsx`, `Solaranlage.tsx`, `SonnenWahl.tsx`, `Elektroauto.tsx`, `CarportFlaeche.tsx`
+- `server/mqtt-speicher.test.ts` (falls nicht vorhanden, sonst Erweiterung)
+- `.github/release-hinweise/v2.1.0.md` (Pflicht), `docs/abnahme-2.1.md` + `docs/abnahme-2.1/*.png`
+
+**Ändern – Domäne:** `katalog.ts` (Etage `Außen`, Kategorie `mobilitaet`, Symbol `wallbox`, Raum `carport`, Gerät `carport.wallbox`, `HAUS_ETAGEN`) · `protokoll.ts` (§3.12.2) · `befehle.ts` (`FELDER`, `pruefeBefehl`, `pruefeRegel`, `erzwingeLadeRegeln`) · `verbrauch.ts` (`netzbilanz`, `ertragProStunde`, `tagesKosten`, `tagesErzeugungWh`) · `energie.ts` (drei Reihen) · `format.ts` (`akku`, `kwp`) · `szenen.ts` (nur Kommentar) · Tests `katalog`, `verbrauch`, `befehle`, `energie-format`.
+
+**Ändern – Server:** `zustandsdienst.ts` (Auto/Sonne, `aendere`-Signatur, `integriereBis` mit Akku, Akku-voll-Timer, Restore-Normalisierung, `fuehreAus`-Ergebnis, Snapshot/Energie-Nachricht) · `ws-verbindungen.ts` (`NICHT_MOEGLICH`) · `mqtt-speicher.ts` (Topics `auto/zustand`, `solar/sonne`, Energie `v: 2` + Migration) · `konfig.ts` (`leseEuroProKwh`, `leseEinspeiseverguetung`) · `app.ts`, `index.ts` (Option `einspeiseverguetung`) · Tests `zustandsdienst`, `konfig`, `tests/integration/{protokoll,persistenz}.test.ts`, `hilfen.ts`.
+
+**Ändern – Client/UI:** `hausReducer.ts` (+ Test, §3.12.6) · `useHaus.tsx` (`sonne()`, `auto()`) · `src/ui/texte.ts` · `src/ui/farbtokens.ts` (Rollen `solar`, `solar-soft`, Paare) · `globals.css` (`@theme inline`) · `Kopfbereich.tsx` · `Uebersicht.tsx` · `App.tsx` (`<Solaranlage />` nach der Szenenleiste) · `Hausansicht.tsx` (Dach-Solar, Außen-Zeile) · `Raumkarte.tsx` (Carport: `Elektroauto`-Block, kein `RaumAusKnopf`, `sperrGrund`) · `GeraeteZeile.tsx` (`sperrGrund`) · `Meldungen.tsx` (Art `solar`) · `Symbol.tsx` (`auto`, `blitz`, `wallbox`, `solar`) · `VerbrauchNachRaum.tsx` (Skeleton aus `RAEUME.length`) · `App.test.tsx`, `tests/fixtures/snapshot.ts` (Version 2.1.0, neue Felder, Fixture „Auto lädt, Heiter“).
+
+**Ändern – Betrieb/Doku:** `package.json`/`package-lock.json` (2.1.0) · README, API.md, DOCKER-SETUP.md, KUBERNETES.md, Compose-Dateien (auskommentierte Variable) · `docs/*` (api-contracts, data-models, architecture, component-inventory, project-overview, source-tree-analysis, development-guide, deployment-guide, index).
+
+**Bewusst unverändert:** `server/ursprung.ts`, `server/log.ts`, `server/version.ts`, `src/client/verbindung.ts`, `Dockerfile`, `docker/*`, `.github/workflows/ci-release.yml`, `scripts/pruefe-js-budget.mjs`, `scripts/smoke-container.mjs`, Szenendefinitionen, Rate-Limit-Konstanten.
+
 ---
 
 ## 9. Entscheidungsprotokoll Architektur
@@ -727,3 +918,8 @@ Alle 35 FR und 10 NFR sind in §5.4 einem Ort und in §3.10 einem Test oder eine
 | AD-20 | Kein Rate-Limit je Verbindung | FR-19-Test verlangt 200 Befehle ohne Pause; Heimnetz, 4-KB-Grenze + sequenzielle Verarbeitung genügen | – |
 | AD-21 | `scripts/dev-broker.mjs` (aedes) für lokale Entwicklung ohne Docker | niedrige Einstiegshürde, keine neue Abhängigkeit (aedes ist ohnehin devDep) | neu |
 | AD-22 | `eslint.ignoreDuringBuilds: true` | Lint läuft als eigener CI-Schritt; kein Doppellauf | neu |
+| AD-23 | Auto und Sonne als eigene Serverzustände neben `HausZustand`, über denselben `aendere`-Pfad; eine Änderung = eine `aenderung` (auch Wegfahren + Laden-Ende) | ein Änderungspfad bleibt (§4.4), konsistenter Zustand (FR-16) | 2.1 |
+| AD-24 | Akku wird im selben Integrationsschritt wie die Tagesenergie fortgeschrieben; Clients extrapolieren nur zur Anzeige mit derselben Domänenfunktion (`akkuWhBei`) | Server bleibt Autorität; geladene Energie = integrierte Wallbox-Energie; kein zusätzlicher Takt | 2.1 |
+| AD-25 | Akku-voll als Server-Timer analog Auto-Aus (AD-09), Ursache `akkuVoll` | bewährter Mechanismus, exakter Abschaltzeitpunkt | 2.1 |
+| AD-26 | Energie-Topic `v: 2` mit Lese-Migration von `v: 1` (`bezugWh = wh`, `einspeisungWh = 0`); neue Topics `auto/zustand`, `solar/sonne` mit `v: 1`, Präfix `iot-haus/v2` bleibt | Tageswert überlebt das Upgrade ohne Sprung; kein Schemabruch | 2.1 |
+| AD-27 | Neuer Fehlercode `NICHT_MOEGLICH` für fachliche Regelverstöße (Laden unterwegs/voll, Wegfahren < 15 %) statt stiller `geaendert: false` | Rennen zwischen Clients sichtbar und testbar; UI sperrt zusätzlich mit Grund | 2.1 |

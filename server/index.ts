@@ -2,7 +2,7 @@
 import { parse } from 'node:url';
 import next from 'next';
 import { erstelleServer } from './app';
-import { leseKonfig, leseStrompreis } from './konfig';
+import { leseEinspeiseverguetung, leseKonfig, leseStrompreis } from './konfig';
 import { log } from './log';
 import { leseVersion } from './version';
 
@@ -10,6 +10,7 @@ async function main(): Promise<void> {
   const konfig = leseKonfig(process.env);
   const version = leseVersion(__dirname);
   const strompreis = leseStrompreis(process.env.STROMPREIS_EUR_PRO_KWH, log);
+  const einspeiseverguetung = leseEinspeiseverguetung(process.env.EINSPEISEVERGUETUNG_EUR_PRO_KWH, log);
 
   const app = next({ dev: konfig.dev, hostname: konfig.hostname, port: konfig.port });
   const handle = app.getRequestHandler();
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
     hostname: konfig.hostname,
     mqttUrl: konfig.mqttUrl,
     strompreis,
+    einspeiseverguetung,
     version,
     log,
     erlaubteHosts: konfig.erlaubteHosts,

@@ -13,6 +13,7 @@ import {
 import { HausVerbindung, standardUrl } from '@/client/verbindung';
 import type { GeraetId, RaumId } from '@/domain/katalog';
 import type { Befehl } from '@/domain/protokoll';
+import type { SonnenStufe } from '@/domain/solar';
 import type { SzeneId } from '@/domain/szenen';
 
 export const CLIENT_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
@@ -26,6 +27,9 @@ export interface HausKontext {
   schalten(geraet: GeraetId, an: boolean): void;
   szene(szene: SzeneId): void;
   raumAus(raum: RaumId): void;
+  sonne(stufe: SonnenStufe): void;
+  /** Elektroauto wegfahren (false) bzw. zurückkommen (true) lassen */
+  auto(zuhause: boolean): void;
   neuVerbinden(): void;
   meldungEntfernen(id: number): void;
 }
@@ -71,7 +75,14 @@ export function HausProvider({
 
   const sende = useCallback((befehl: OhneId<Befehl>, ausstehend: Ausstehend) => {
     const z = aktuell.current;
-    if (!istBedienbar(z) || istBeschaeftigt(z, ausstehend.art, ausstehend.ref)) return;
+    // Auto: höchstens eine offene Fahrt; Sonne: jede Wahl wird gesendet, die letzte gewinnt (CR21-04)
+    const belegt =
+      ausstehend.art === 'auto'
+        ? Object.values(z.ausstehend).some((a) => a.art === 'auto')
+        : ausstehend.art === 'sonne'
+          ? false // auch Hin-und-her-Wechsel wird gesendet (RR21-01)
+          : istBeschaeftigt(z, ausstehend.art, ausstehend.ref);
+    if (!istBedienbar(z) || belegt) return;
     const id = `${Date.now().toString(36)}-${zaehler.current++}`;
     dispatch({ typ: 'gesendet', befehlId: id, ausstehend });
     const gesendet = verbindung.current?.sende({ ...befehl, id } as Befehl) ?? false;
@@ -88,6 +99,14 @@ export function HausProvider({
   );
   const szene = useCallback((s: SzeneId) => sende({ typ: 'szene', szene: s }, { art: 'szene', ref: s }), [sende]);
   const raumAus = useCallback((raum: RaumId) => sende({ typ: 'raumAus', raum }, { art: 'raumAus', ref: raum }), [sende]);
+  const sonne = useCallback(
+    (stufe: SonnenStufe) => sende({ typ: 'sonne', stufe }, { art: 'sonne', ref: stufe }),
+    [sende],
+  );
+  const auto = useCallback(
+    (zuhause: boolean) => sende({ typ: 'auto', zuhause }, { art: 'auto', ref: zuhause ? 'zurueck' : 'weg' }),
+    [sende],
+  );
   const neuVerbinden = useCallback(() => verbindung.current?.jetztVerbinden(), []);
   const meldungEntfernen = useCallback((id: number) => dispatch({ typ: 'meldungEntfernen', id }), []);
 
@@ -99,10 +118,12 @@ export function HausProvider({
       schalten,
       szene,
       raumAus,
+      sonne,
+      auto,
       neuVerbinden,
       meldungEntfernen,
     }),
-    [zustand, naechsterVersuch, schalten, szene, raumAus, neuVerbinden, meldungEntfernen],
+    [zustand, naechsterVersuch, schalten, szene, raumAus, sonne, auto, neuVerbinden, meldungEntfernen],
   );
 
   return <Kontext.Provider value={wert}>{children}</Kontext.Provider>;

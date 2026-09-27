@@ -99,10 +99,11 @@ describe('Szenen (FR-22 bis FR-24)', () => {
     expect(istSzeneId('party')).toBe(false);
   });
 
-  it('Alles aus aus „alles an“: nur Grundlast bleibt, 75 W', () => {
+  it('Alles aus aus „alles an“: nur Grundlast bleibt, 78 W, Laden endet', () => {
     const z = wendeAn(allesAn(), { typ: 'szene', id: 'a', szene: 'alles-aus' }, 1).zustand;
     expect(eingeschaltet(z)).toEqual(['kueche.kuehlschrank', 'hwr.gefrierschrank', 'arbeitszimmer.router']);
-    expect(runden(hausverbrauch(z))).toBe(75);
+    expect(runden(hausverbrauch(z))).toBe(78);
+    expect(z['carport.wallbox'].an).toBe(false);
   });
 
   it('Gute Nacht aus „alles an“: Grundlast + Nachttischlampe', () => {

@@ -2,7 +2,7 @@
 stepsCompleted: [1, 2, 3, 4]
 status: final
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-09-27
 author: 'John (BMAD PM), headless'
 inputDocuments:
   - _bmad-output/planning-artifacts/00-auftrag.md
@@ -14,6 +14,8 @@ inputDocuments:
   - _bmad-output/planning-artifacts/ux-designs/ux-iot-haus-2026-09-26/DESIGN.md
   - _bmad-output/planning-artifacts/ux-designs/ux-iot-haus-2026-09-26/EXPERIENCE.md
   - _bmad-output/planning-artifacts/ux-designs/ux-iot-haus-2026-09-26/.decision-log.md
+  - _bmad-output/planning-artifacts/00-auftrag-2.1.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-09-27.md
 bindingResolutions: _bmad-output/planning-artifacts/implementation-readiness-report-2026-09-26.md#konfliktauflösung
 ---
 
@@ -26,6 +28,8 @@ Dieses Dokument zerlegt PRD (FR-1 bis FR-35, NFR-1 bis NFR-10), Architektur (AD-
 **Headless-Lauf:** Der Stakeholder steht nicht zur Verfügung. Alle Menüs des Workflows wurden mit **[C]** beantwortet; Advanced Elicitation und Party Mode wurden nicht gestartet. Nichts ist vertagt; jede Story gehört zu Release 2.0.0.
 
 **Verbindliche Konfliktauflösung:** Wo PRD, Architektur und UX sich widersprechen, gilt die Konfliktauflösung K-01 bis K-30 im Readiness-Report (`implementation-readiness-report-2026-09-26.md`, Abschnitt „Konfliktauflösung“). Die Akzeptanzkriterien unten sind bereits nach diesen Entscheidungen formuliert (Verweise als „K-nn“). Kurzregel: **PRD > Architektur (Dateien, Namen, Technik) > UX (Aussehen, Verhalten, Texte)**; UX-Werte (Farben, Texte, Verhalten) gelten überall dort, wo die Architektur nichts festlegt.
+
+**Fortschreibung 2.1.0 (2026-09-27):** Mit dem Sprint Change Proposal `sprint-change-proposal-2026-09-27.md` (Auftrag `00-auftrag-2.1.md`) kommt **Epic 8 „Elektroauto & Solaranlage“** hinzu (FR-36 bis FR-44, AD-23 bis AD-27, K-31). Epics 1–7 sind mit Release 2.0.0 abgeschlossen und werden nicht wieder geöffnet; wo ihre Akzeptanzkriterien feste Zahlen nennen (28 Geräte, 6 Räume, 75 W, 10,3 W, 12.978 W), werden die zugehörigen Tests in Story 8.1 auf die Kontrollsummen 2.1 umgestellt (29 Geräte, 7 Räume, 78 W, 13,3 W, 23.978 W). Maßgeblich für 2.1 sind PRD §4.7/§4.8 und die geänderten FR, Architektur §3.12 und die UX-Spines in der Fassung 2.1.
 
 **Parallelbetrieb:** Die Umsetzung hat bereits begonnen (`src/domain/*`, `server/*`, `tsconfig.server.json`, `vitest.config.mts`). Bereits vorhandener Code gilt als Teilumsetzung der jeweiligen Story und wird gegen deren Akzeptanzkriterien geprüft, nicht neu geschrieben.
 
@@ -68,6 +72,21 @@ FR-32: CI auf PR und Push main: `npm ci`, Lint (0/0), Typecheck, Tests, `next bu
 FR-33: Version 2.0.0; Push main → `:latest` (amd64+arm64); Job erzeugt Tag `v‹version›`, GitHub Release mit Änderungsliste und Upgrade-Hinweis und Image `:‹version›`, falls Tag fehlt; nur Tags `:latest`, `:‹version›`, `:sha-‹kurz›`; kein Tag-getriggerter Build ohne CI-Gate.
 FR-34: Doku auf Stand 2.0.0: README (Deutsch, Funktionen, Katalog, Strompreis, Betrieb, Update, Entwicklung, Reverse-Proxy-Empfehlung), API.md (WS-Protokoll, Topics), DOCKER-SETUP.md/KUBERNETES.md (Healthcheck ohne curl, Probes), veraltete Dokus entfernt, copilot-instructions/GITHUB-ACTIONS aktualisiert.
 FR-35: `useMockMqtt`, `shouldUseMock`, `test-container-*.js`, `test-multi-device.js` entfernt; keine `console.log` im Browser (ESLint `no-console`, Ausnahme `console.error`); Server loggt je Befehl höchstens eine Zeile ohne Nutzdaten.
+
+
+**Neu mit 2.1.0 (Epic 8; Details PRD §4.7/§4.8, Proposal §5.2):**
+
+FR-36: Carport und Wallbox – Raum `carport` („Carport“, Etage „Außen“, letzter Raum), Gerät `carport.wallbox` (Wallbox, Kategorie Mobilität, Betrieb 11.000 W, Standby 3 W, kein Grundlastgerät, kein Auto-Aus); 29 Geräte, 7 Räume.
+FR-37: Genau ein Elektroauto, Akku 60.000 Wh, Ausgangszustand zu Hause mit 30.000 Wh (50 %); Anzeige Ort, Akku in ganzen Prozent (abgerundet), beim Laden „voll in ‹h› h ‹m› min“.
+FR-38: Laden = Wallbox *An*, nur zu Hause und Akku < 60.000 Wh (sonst gesperrt mit Grund bzw. `NICHT_MOEGLICH`); serverseitige Akku-Integration mit 11.000 W; bei 100 % schaltet der Server aus (Ursache „Akku voll“); Ausfallzeit lädt nicht; Restore erzwingt Laderegeln.
+FR-39: „Wegfahren“ (nur ab 9.000 Wh) setzt unterwegs und beendet Laden in derselben Änderung; „Zurückkommen“ zieht 9.000 Wh ab (min. 0); keine optimistische Anzeige.
+FR-40: Solaranlage 9.800 W Spitzenleistung; Sonnenlage in 5 Stufen (Nacht 0, Bedeckt 0,10, Wolkig 0,35, Heiter 0,65, Sonnig 0,85); gemeinsamer, gespeicherter Serverzustand; Start „Nacht“.
+FR-41: Netzbilanz live im Kopf: „Solar ‹x› W · Netzbezug ‹y› W“ bzw. „· Einspeisung ‹y› W“; Kosten/h aus Netzbezug, bei Einspeisung „Ertrag ‹x› €/h“ (Einspeisevergütung Standard 0,08 €/kWh, `EINSPEISEVERGUETUNG_EUR_PRO_KWH`); Rechnung aus gerundeten Anzeigewerten.
+FR-42: Tagesbilanz – Server integriert Verbrauch, Bezug und Einspeisung; Übersicht „Heute ‹kWh› · ‹netto› €“ bzw. „Ertrag“, „Netz heute: Bezug … · Einspeisung …“; Solaranlage „Heute erzeugt ‹x› kWh“.
+FR-43: Darstellung – Bereich „Solaranlage“ mit Sonnenwahl nach den Szenen, Hausansicht mit Dach-Solar und Zeile „Außen“ (Carport-Fläche), Carport-Raumkarte mit Elektroauto-Bereich; Tastatur und Screenreader vollständig.
+FR-44: Release 2.1.0 – `package.json` 2.1.0, alte Tabs zeigen Versionsbanner, kein manueller Upgrade-Schritt, `docs/abnahme-2.1.md` ausgefüllt eingecheckt.
+
+Geänderte FR mit 2.1.0 (Konsequenzen, siehe PRD): FR-1, FR-2, FR-4, FR-6, FR-9, FR-10, FR-11, FR-15, FR-17, FR-18, FR-23/24, FR-25, FR-26, FR-27, FR-30, FR-33, FR-34, NFR-7, NFR-10 – umgesetzt ausschließlich über Epic 8.
 
 ### NonFunctional Requirements
 
@@ -185,6 +204,16 @@ UX-DR31: Metadaten: Titel, Beschreibung, `appleWebApp.title: "IoT-Haus"`, `viewp
 | FR-33 | Epic 1, Epic 6 | 1.6, 6.3 |
 | FR-34 | Epic 7 | 7.2 |
 | FR-35 | Epic 1, Epic 2, Epic 4, Epic 7 | 1.6, 2.1, 4.3, 7.1 |
+| FR-36 | Epic 8 | 8.1, 8.6 |
+| FR-37 | Epic 8 | 8.1, 8.2, 8.6 |
+| FR-38 | Epic 8 | 8.1, 8.2, 8.3, 8.6 |
+| FR-39 | Epic 8 | 8.1, 8.2, 8.3, 8.6 |
+| FR-40 | Epic 8 | 8.1, 8.2, 8.5 |
+| FR-41 | Epic 8 | 8.1, 8.4 |
+| FR-42 | Epic 8 | 8.1, 8.2, 8.4, 8.5 |
+| FR-43 | Epic 8 | 8.4, 8.5, 8.6 |
+| FR-44 | Epic 8 | 8.3, 8.7 |
+| Geänderte FR 2.1 (FR-1 … FR-34, NFR-7, NFR-10) | Epic 8 | 8.1 (Kontrollsummen), 8.2 (Snapshot, Persistenz, Befehle), 8.4–8.6 (Darstellung), 8.7 (Version, Doku, Abnahme) |
 
 | NFR | Stories |
 |---|---|
@@ -243,6 +272,10 @@ Jeder PR und jeder Push auf main wird geprüft; nur grüne Stände werden als Mu
 ### Epic 7: Aufgeräumt, dokumentiert, abgenommen
 Betreiber und Entwickelnde finden eine aktuelle deutsche Doku ohne toten Code; die Abnahme-Checkliste belegt Responsivität, Tastatur, Screenreader und Zwei-Geräte-Sync vor dem Release.
 **FRs covered:** FR-29 (Resttext-Test), FR-34, FR-35
+
+### Epic 8: Elektroauto & Solaranlage (Release 2.1.0)
+Ein Elektroauto im Carport lädt an der Wallbox, fährt weg und kommt zurück; eine Solaranlage erzeugt je nach gewählter Sonnenlage; Kopf und Tageswerte zeigen Netzbezug, Einspeisung, Kosten und Ertrag (UJ-6). Reihenfolge wie Architektur §3.11: Domäne → Server → Client-Zustand → UI → Doku/Release.
+**FRs covered:** FR-36, FR-37, FR-38, FR-39, FR-40, FR-41, FR-42, FR-43, FR-44 sowie die mit 2.1 geänderten FR-1, FR-2, FR-4, FR-6, FR-9, FR-10, FR-11, FR-15, FR-17, FR-18, FR-23/24, FR-25, FR-26, FR-27, FR-30, FR-33, FR-34, NFR-7, NFR-10
 
 **Epic-Schnitt (Datei-Churn geprüft):** Epics 4 und 5 berühren beide `src/components/`, aber disjunkte Dateien (Kopf/Übersicht/Meldungen/Banner vs. Raumkarte/Szenen/Hausansicht); die Trennung bildet eine echte Risikogrenze (erst Anzeige und Verbindung stabil, dann Bedienung). Epics 3 und 6 teilen nur `Dockerfile`-Wissen, nicht Dateien. Keine weitere Konsolidierung nötig.
 
@@ -995,6 +1028,169 @@ So that belegt ist, dass die manuell zu prüfenden Qualitäten vor dem Release g
 
 ---
 
+## Epic 8: Elektroauto & Solaranlage (Release 2.1.0)
+
+Quelle: `sprint-change-proposal-2026-09-27.md` §4–§7 (Akzeptanzkriterien AC-01 … AC-25, Tests T-01 … T-24). Reihenfolge 8.1 → 8.2 → 8.3 → (8.4 ∥ 8.5 ∥ 8.6) → 8.7. Code-Review (`bmad-code-review`) nach Story 8.6, Re-Review nach Korrekturen – wie bei 2.0. Vor dem Merge auf main holt der Entwickler per Dialog die Zustimmung des Stakeholders ein (`00-auftrag-2.1.md`).
+
+**Kontrollsummen 2.1 (verbindlich für alle Tests):** 29 Geräte / 7 Räume (6 im Haus + Carport); Standby 13,3 W; Ausgangszustand 78,3 W → „78 W“, 0,03 €/h; „Alles an“ 23.978 W; „Alles aus“ aus „alles an“ → 78 W; „Gute Nacht“ 83 W; Morgenroutine +5.532 W; Laden aus Ausgangszustand bei Nacht → 11.075 W, „hoch“, 3,88 €/h; Laden bei „Sonnig“ → Netzbezug 2.745 W, 0,96 €/h; Ausgangszustand „Sonnig“ → Einspeisung 8.252 W, Ertrag 0,66 €/h; Erzeugung je Stufe 0 · 980 · 3.430 · 6.370 · 8.330 W; Laden 50 % → 100 % = 9.818 s („voll in 2 h 44 min“).
+
+### Story 8.1: Domäne – Carport, Elektroauto, Solaranlage, Netzbilanz
+
+As a Entwicklerin,
+I want Carport, Wallbox, Elektroauto, Sonnenlage und Netzbilanz als reine, getestete Domänenfunktionen,
+So that Server und Client dieselben Zahlen rechnen und alle Anzeigen fachlich stimmen.
+
+**Acceptance Criteria:**
+
+**Given** `src/domain/katalog.ts`
+**When** der Katalog geladen wird
+**Then** gibt es `Etage = 'EG' | 'OG' | 'Außen'`, Kategorie `mobilitaet` („Mobilität“), Symbol `wallbox`, als letzten Raum `carport` (Carport, Außen) mit genau dem Gerät `carport.wallbox` (11.000 W, Standby 3 W, `grundlast: false`, `autoAusS: null`) und `HAUS_ETAGEN = ['OG', 'EG']`
+**And** `katalog.test.ts` prüft 29 Geräte, 7 Räume, Carport 1 Gerät, Hausräume ≥ 3 (T-01)
+
+**Given** die neuen Module `src/domain/elektroauto.ts` und `src/domain/solar.ts` (Architektur §3.12)
+**When** ihre Tests laufen
+**Then** gelten `akkuWhBei` (lädt/nicht, unterwegs, Deckel 60.000), `akkuProzent` (abgerundet, 100 nur voll), `restLadezeitMs` (9.818.182 ms ab 50 %), `darfLaden`, `darfWegfahren` (Grenze 9.000 Wh), `nachRueckkehr` sowie Erzeugung je Stufe 0/980/3.430/6.370/8.330 W und `istSonnenStufe` (T-03, T-04)
+
+**Given** `verbrauch.ts` und `energie.ts`
+**When** 2.000 W Verbrauch bei „Wolkig“ 30 min integriert werden
+**Then** sind Verbrauch 1.000 Wh, Bezug 0 Wh, Einspeisung 715 Wh, Erzeugung 1.715 Wh und die Tageskosten −0,06 € (AC-17); `netzbilanz` liefert aus gerundeten Werten genau einen positiven Wert oder 0/0; Kontrollsummen 78,3 / 13,3 / 23.978 W (T-02, T-05)
+
+**Given** `befehle.ts` und `protokoll.ts`
+**When** Befehle `sonne` und `auto` geprüft werden
+**Then** gelten exakte Feldmengen (`['typ','id','stufe']`, `['typ','id','zuhause']`), unbekannte Stufen → `UNGUELTIGER_BEFEHL`; `pruefeRegel` liefert `NICHT_MOEGLICH` für Laden unterwegs/voll und Wegfahren < 15 %; `erzwingeLadeRegeln` schaltet die Wallbox bei unterwegs/voll aus; „Alles aus“ und „Gute Nacht“ schalten die Wallbox aus, keine Szene schaltet sie ein (AC-09, T-06)
+**And** `format.ts` hat `akku` („64 %“) und `kwp` („9,8 kWp“); Bestandstests sind auf die Kontrollsummen 2.1 umgestellt; `ausgangszustand` liefert Auto zu Hause 50 %, Sonne „Nacht“, 78 W (AC-01, Domänenteil); Coverage ≥ 90 % auch für die neuen Module
+
+### Story 8.2: Server – Zustandsdienst, Persistenz, Konfiguration
+
+As a Bewohner mit mehreren Geräten,
+I want dass Auto, Akku und Sonnenlage vom Server gehalten, verteilt und gespeichert werden,
+So that alle Clients dasselbe sehen und nach einem Neustart nichts verloren ist.
+
+**Acceptance Criteria:**
+
+**Given** der Zustandsdienst mit `auto`, `sonne` und einem Änderungspfad `aendere` (AD-23)
+**When** „Wegfahren“ bei laufender Wallbox ausgeführt wird
+**Then** entsteht genau eine `aenderung` mit Auto unterwegs und Wallbox *Aus*; der Akku bleibt auf dem Wert bei Abfahrt (AC-06); „Zurückkommen“ zieht 9.000 Wh ab (AC-07, Serverteil)
+
+**Given** die Wallbox lädt ab 50 %
+**When** 9.818 s (± 1 s, Fake-Timer) vergehen
+**Then** schaltet der Akku-voll-Timer die Wallbox aus (Ursache `akkuVoll`), der Akku steht auf 60.000 Wh, Log `akku_voll` (AC-04, AD-25); der 60-s-Energie-Takt integriert Energie und Akku gemeinsam und sendet `energie` mit `auto` (AD-24)
+
+**Given** ein unzulässiger Befehl (Laden unterwegs/voll, Wegfahren < 15 %)
+**When** er eintrifft
+**Then** antwortet der Server mit `fehler NICHT_MOEGLICH` samt `befehlId`, der Zustand bleibt unverändert (AC-05, AC-08, AD-27)
+
+**Given** retained Topics `iot-haus/v2/auto/zustand`, `iot-haus/v2/solar/sonne` und Energie `v: 2`
+**When** der Server neu startet
+**Then** sind Sonnenlage, Auto und Wallbox wiederhergestellt (AC-15), die Ausfallzeit lädt nicht (AC-10), ein inkonsistenter Zustand (unterwegs + Wallbox *An*) wird auf *Aus* korrigiert und gespeichert (AC-11), und ein Energie-Payload `v: 1` wird als `bezugWh = wh`, `einspeisungWh = 0` übernommen (AC-18, AD-26)
+
+**Given** `EINSPEISEVERGUETUNG_EUR_PRO_KWH=abc`
+**When** der Server startet
+**Then** gilt 0,08 und es gibt genau eine Logzeile `einspeiseverguetung_ungueltig` (AC-19); der Snapshot enthält `auto`, `sonne`, `einspeiseverguetung` und die Energie mit Bezug/Einspeisung
+**And** Tests T-07 … T-11 sind grün; Härtung und Rate-Limit sind unverändert
+
+### Story 8.3: Client-Zustand, Meldungen und Ansagen
+
+As a Nutzerin,
+I want dass meine Oberfläche Sonnenlage, Auto und Akku aus dem Server übernimmt und jede Änderung verständlich meldet,
+So that ich sehe und höre, was passiert ist – auch wenn es jemand anderes ausgelöst hat.
+
+**Acceptance Criteria:**
+
+**Given** `hausReducer.ts` und `useHaus.tsx`
+**When** ein Snapshot ohne die neuen Felder eintrifft
+**Then** gelten die Defaults (`ausgangsAuto`, „Nacht“, 0,08, `bezugWh = wh`, `einspeisungWh = 0`); `aenderung` nur mit `sonne` oder `auto` wird verarbeitet; `energie` übernimmt `auto`; `sonne()` ist optimistisch mit Rücksprung nach Fehler/5 s, `auto()` nicht optimistisch (T-12)
+
+**Given** Ursachen `sonne`, `auto`, `akkuVoll` und `geraet` Wallbox
+**When** sie eintreffen
+**Then** entstehen Toasts und Ansagen exakt nach EXPERIENCE.md (z. B. „Sonne: Sonnig · Solar 8.330 W“ ohne Delta-Chip, „−10.997 W · Elektroauto weggefahren, Laden beendet“, „Wallbox an. Hausverbrauch 11.075 Watt.“) im 2-s-Sammelfenster (AC-25)
+**And** die Microcopy steht in `src/ui/texte.ts`; ein 2.0-Client mit 2.1-Snapshot zeigt den Versionskonflikt ohne Ausnahme (AC-23, T-24)
+
+### Story 8.4: Kopf und Übersicht mit Netzbilanz
+
+As a Bewohner,
+I want im Kopf neben dem Hausverbrauch sehen, was die Sonne liefert und ob Strom aus dem Netz kommt oder hineinfließt,
+So that ich Kosten und Ertrag sofort einschätzen kann.
+
+**Acceptance Criteria:**
+
+**Given** Ausgangszustand und Sonne „Sonnig“
+**When** der Kopf angezeigt wird
+**Then** zeigt die Netz-Zeile „Solar 8.330 W · Einspeisung 8.252 W“ und statt der Kosten „Ertrag 0,66 €/h“; Hausverbrauch „78 W“ ohne Zählanimation und ohne Delta-Chip (AC-12); bei Laden: „Netzbezug 2.745 W“, „0,96 €/h“, Laststufe „hoch“ (AC-13); bei „Nacht“ rechnet alles wie 2.0 (AC-14)
+
+**Given** 360 × 640 px
+**When** die Seite gerendert wird
+**Then** ist der Kopf ≤ 136 px hoch, die Netz-Zeile bricht nicht um, und es gibt kein horizontales Scrollen (auch 768/1024/1440, hell/dunkel) (AC-20)
+
+**Given** die Übersicht
+**When** sie angezeigt wird
+**Then** zeigt sie „Heute ‹kWh› · ‹netto› €“ bzw. „· Ertrag ‹x› €“, „Netz heute: Bezug … · Einspeisung …“ und „Strompreis 0,35 €/kWh · Einspeisevergütung 0,08 €/kWh“ samt neuem Info-Text
+**And** die Tokens `solar`/`solar-soft` (36 Rollen je Theme) und alle neuen Kontrastpaare sind in `farbtokens.ts` und `globals.css`; der Kontrasttest besteht (T-14)
+
+### Story 8.5: Bereich Solaranlage mit Sonnenwahl
+
+As a Nina (UJ-6),
+I want einstellen, wie viel Sonne gerade scheint,
+So that ich sehe, wie sich Erzeugung, Netzbezug und Kosten verändern.
+
+**Acceptance Criteria:**
+
+**Given** der Bereich „Solaranlage“ (h2) nach der Szenenleiste
+**When** er angezeigt wird
+**Then** zeigt er Erzeugung, „9,8 kWp“, „Heute erzeugt ‹x› kWh“ und die Sonnenwahl als `<fieldset>` mit Legende „Sonne gerade“ und 5 nativen Radios (Name z. B. „Sonnig, 8.330 Watt“)
+
+**Given** eine gewählte Stufe
+**When** keine Bestätigung binnen 5 s kommt oder ein Fehler eintrifft
+**Then** springt die Auswahl auf den Serverwert zurück und es erscheint „Sonne konnte nicht eingestellt werden. Bitte erneut versuchen.“ (AC-16); während des Wartens `aria-busy` und „wird eingestellt …“; offline `aria-disabled`
+
+**Given** Tastatur
+**When** nach den Szenen Tab gedrückt wird
+**Then** erreicht man die Sonnenwahl mit einem Tab und wechselt die Stufe mit Pfeiltasten (AC-21, Teil)
+
+### Story 8.6: Carport – Raumkarte, Elektroauto, Hausansicht
+
+As a Bewohnerin,
+I want das Auto im Carport laden, wegfahren und zurückkommen lassen und es in der Hausansicht sehen,
+So that ich das Elektroauto wie jedes andere Gerät im Haus im Blick habe.
+
+**Acceptance Criteria:**
+
+**Given** Auto zu Hause mit 50 %
+**When** die Wallbox eingeschaltet wird
+**Then** zeigen alle Clients ≤ 1 s später 11.075 W, „hoch“, „3,88 €/h“, „+10.997 W · Wallbox (Carport)“ und am Auto „lädt · voll in 2 h 44 min“ (AC-02); nach Reload während des Ladens zeigt jeder Client denselben abgerundeten Akkustand (AC-03)
+
+**Given** die Carport-Raumkarte (h3 „Carport“, letzte Karte)
+**When** sie angezeigt wird
+**Then** enthält sie oben den Elektroauto-Bereich (Status, Akku-Balken, „Wegfahren“/„Zurückkommen“) und darunter die Wallbox-Zeile, aber kein „Raum ausschalten“ (E-12); unterwegs oder voll ist die Wallbox `aria-disabled` mit Grund „nicht verfügbar: Elektroauto ist unterwegs“ bzw. „Akku voll“ (AC-05); bei < 15 % ist „Wegfahren“ gesperrt mit „Akku zu leer zum Wegfahren (mindestens 15 %).“ (AC-08); „Zurückkommen“ mit 64 % ergibt 49 % (AC-07)
+
+**Given** die Hausansicht
+**When** sie angezeigt wird
+**Then** zeigt das Dach Solarmodule und „☀ Solar ‹x› W“, die Zeile „Außen“ eine Carport-Fläche („Auto lädt 64 %“ / „Auto zu Hause 50 %“ / „Auto unterwegs“), die per Enter zur Carport-Karte springt und deren h3 fokussiert (AC-21, Teil); „Verbrauch nach Raum“ hat 7 Einträge
+**And** axe meldet mit der Fixture „Auto lädt, Sonne Heiter“ in Hell und Dunkel 0 Verstöße (AC-22, T-13)
+
+### Story 8.7: Doku, Abnahme und Release 2.1.0
+
+As a Betreiber,
+I want eine aktualisierte Doku, eine ausgefüllte Abnahme und ein automatisches Release 2.1.0,
+So that ich ohne manuellen Schritt aktualisieren kann und belegt ist, dass alles geprüft wurde.
+
+**Acceptance Criteria:**
+
+**Given** `package.json` 2.1.0 und `.github/release-hinweise/v2.1.0.md` (Pflicht, sonst bricht der Release-Job ab)
+**When** nach Stakeholder-Zustimmung auf main gemergt wird
+**Then** erzeugt `ci-release.yml` Tag `v2.1.0`, Image `:2.1.0`/`:latest` und das GitHub Release mit den Hinweisen; `/api/health` meldet `"version": "2.1.0"` (AC-24, FR-44)
+
+**Given** README, API.md, DOCKER-SETUP.md, KUBERNETES.md, Compose-Dateien und `docs/*`
+**When** sie gelesen werden
+**Then** beschreiben sie Elektroauto, Solaranlage, Netzbilanz, neue Befehle, Felder, Ursachen, Fehlercode, Topics inkl. `v: 2`-Migration und `EINSPEISEVERGUETUNG_EUR_PRO_KWH`, sowie „Upgrade 2.1.0: kein manueller Schritt“ (FR-34)
+
+**Given** `docs/abnahme-2.1.md`
+**When** sie vor dem Release eingecheckt wird
+**Then** enthält sie Screenshots (360/768/1024/1440, hell/dunkel), Tastaturdurchlauf AC-21, VoiceOver AC-25, Zwei-Geräte-Sync der Sonnenlage und den gemessenen JS-Budget-Wert (Erwartung ≤ 126 kB, Gate 200 kB) (NFR-10)
+**And** `sprint-status.yaml` führt Epic 8 und die Stories 8-1 … 8-7 mit aktuellem Status
+
+---
+
 ## Final Validation (Step 4)
 
 - **FR-Abdeckung:** FR-1 bis FR-35 sind jeweils mindestens einer Story mit prüfbaren Akzeptanzkriterien zugeordnet (Coverage Map oben). ✔
@@ -1004,3 +1200,4 @@ So that belegt ist, dass die manuell zu prüfenden Qualitäten vor dem Release g
 - **Abhängigkeiten:** Keine Vorwärtsabhängigkeiten. Jede Story nutzt nur Ergebnisse früherer Stories (z. B. 4.6 nutzt `useSekundentakt` erstmals und legt ihn an; 5.2 verwendet ihn wieder; 4.5 legt die Live-Region an, die 4.6 für „Verbindung wiederhergestellt.“ nutzt). ✔
 - **Epic-Unabhängigkeit:** Epic N funktioniert mit den Epics 1…N−1. Hinweis zum Übergang: Ab Story 2.5 spricht der Server nur noch das neue Protokoll; die alte Oberfläche ist bis Story 4.3 funktionslos. Das ist akzeptiert, weil zwischen diesen Stories kein Release erfolgt (Auslieferung nur über Epic 6). ✔
 - **Story-Größe:** Jede Story ist für eine Dev-Agent-Sitzung geschnitten; die größten (2.4, 4.2, 5.1) sind durch Architektur §3.5/§3.8 und EXPERIENCE vollständig vorgegeben. ✔
+- **Fortschreibung 2.1.0 (2026-09-27):** FR-36 bis FR-44 und die mit 2.1 geänderten FR sind Epic 8 zugeordnet (Coverage Map). Epic 8 hängt nur von den abgeschlossenen Epics 1–7 ab; innerhalb gilt 8.1 → 8.2 → 8.3 → (8.4 ∥ 8.5 ∥ 8.6) → 8.7 ohne Vorwärtsabhängigkeit. ✔

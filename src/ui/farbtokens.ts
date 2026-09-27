@@ -35,6 +35,8 @@ export const TOKEN_NAMEN = [
   'room-lit',
   'house-roof',
   'theme-color',
+  'solar',
+  'solar-soft',
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMEN)[number];
@@ -75,6 +77,8 @@ export const HELL: Palette = {
   'room-lit': '#FDE68A',
   'house-roof': '#64748B',
   'theme-color': '#FFFFFF',
+  solar: '#0F766E',
+  'solar-soft': '#CCFBF1',
 };
 
 export const DUNKEL: Palette = {
@@ -112,6 +116,8 @@ export const DUNKEL: Palette = {
   'room-lit': '#5B4312',
   'house-roof': '#64748B',
   'theme-color': '#131C2E',
+  solar: '#2DD4BF',
+  'solar-soft': '#0B2F2C',
 };
 
 /** Pflicht-Paare [Vordergrund, Hintergrund, Mindestkontrast] für beide Themes (DESIGN.md). */
@@ -157,6 +163,17 @@ export const KONTRAST_PAARE: readonly [TokenName, TokenName, number][] = [
   ['ink', 'room-lit', 4.5],
   ['ink-secondary', 'room-off', 4.5],
   ['ink-secondary', 'room-lit', 4.5],
+  // 2.1: Solaranlage (Proposal §5.4.6)
+  ['solar', 'surface', 4.5],
+  ['solar', 'bg', 4.5],
+  ['solar', 'surface-raised', 4.5],
+  ['solar', 'surface-sunken', 4.5],
+  ['solar', 'solar-soft', 4.5],
+  ['solar', 'room-off', 4.5],
+  ['ink', 'solar-soft', 4.5],
+  ['ink-secondary', 'solar-soft', 4.5],
+  ['focus', 'solar-soft', 3],
+  ['ink-secondary', 'surface-sunken', 3],
 ];
 
 function kanal(wert: number): number {

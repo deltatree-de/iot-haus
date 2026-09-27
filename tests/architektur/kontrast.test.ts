@@ -7,6 +7,10 @@ describe('Kontraste aller Token-Paare (NFR-2)', () => {
     expect(kontrast('#FFFFFF', '#FFFFFF')).toBeCloseTo(1, 5);
   });
 
+  it('36 Rollen je Theme (2.1: + solar, solar-soft)', () => {
+    expect(TOKEN_NAMEN).toHaveLength(36);
+  });
+
   it('beide Paletten sind vollständig und gültig', () => {
     for (const p of [HELL, DUNKEL]) {
       for (const n of TOKEN_NAMEN) expect(p[n]).toMatch(/^#[0-9A-F]{6}$/);

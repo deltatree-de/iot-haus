@@ -1,12 +1,14 @@
 ---
-name: IoT-Haus 2.0
+name: IoT-Haus 2.1
+version: 2.1.0
 description: Ruhige, zahlenstarke Energie- und Steuerungsoberfläche für ein simuliertes Haus. Warmes Licht als einzige Akzentfarbe, Laststufen als Ampel mit Text, Hell und Dunkel gleichwertig.
 status: final
-updated: 2026-09-26
+updated: 2026-09-27
 sources:
   - _bmad-output/planning-artifacts/prd.md
   - _bmad-output/planning-artifacts/prd-addendum.md
   - _bmad-output/planning-artifacts/prd-decision-log.md
+  - _bmad-output/planning-artifacts/sprint-change-proposal-2026-09-27.md (2.1: Solaranlage, Elektroauto)
 companion: EXPERIENCE.md
 colors:
   # Hell (Standard-Tokens) – Kontraste siehe Abschnitt „Colors“
@@ -44,6 +46,8 @@ colors:
   room-lit: '#FDE68A'
   house-roof: '#64748B'
   theme-color: '#FFFFFF'
+  solar: '#0F766E'
+  solar-soft: '#CCFBF1'
   # Dunkel
   bg-dark: '#0B1120'
   surface-dark: '#131C2E'
@@ -79,6 +83,8 @@ colors:
   room-lit-dark: '#5B4312'
   house-roof-dark: '#64748B'
   theme-color-dark: '#131C2E'
+  solar-dark: '#2DD4BF'
+  solar-soft-dark: '#0B2F2C'
 typography:
   font-family:
     fontFamily: 'Geist Sans (next/font/google, zur Build-Zeit selbst gehostet), Fallback system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
@@ -148,8 +154,9 @@ spacing:
   gutter-mobile: 16px
   gutter-desktop: 24px
   container-max: 1280px
-  header-height: 116px
+  header-height: 136px
   header-height-desktop: 88px
+  header-height-desktop-mid: 112px
   header-height-compact: 64px
   row-min-height: 56px
   hit-min: 44px
@@ -244,9 +251,36 @@ components:
   skeleton:
     background: '{colors.surface-sunken}'
     rounded: '{rounded.sm}'
+  grid-line:
+    typography: '{typography.label}'
+    color: '{colors.ink-secondary}'
+    solar: '{colors.solar}'
+    minWidthNumber: 7ch
+  solar-card:
+    background: '{colors.surface}'
+    rounded: '{rounded.lg}'
+    padding: '{spacing.4}'
+    icon-circle: '{colors.solar-soft} + Symbol {colors.solar}'
+  sun-choice:
+    track: '{colors.surface-sunken}'
+    selected: '{colors.surface} + 1px {colors.border}, Text {colors.ink}'
+    minHeight: '{spacing.hit-min}'
+  battery-bar:
+    track: '{colors.surface-sunken}'
+    fill: '{colors.ink-secondary}'
+    height: 8px
+    rounded: '{rounded.full}'
+  carport-tile:
+    off: '{colors.room-off}'
+    charging: '{colors.room-off} + 2px Rand {colors.on} + Blitz {colors.on}'
+    rounded: '{rounded.sm}'
+    minHeight: 72px
+  roof-panel:
+    active: '{colors.solar-soft} + Kontur {colors.solar}'
+    idle: '{colors.surface-sunken}'
 ---
 
-# IoT-Haus 2.0 – DESIGN.md (visuelle Identität)
+# IoT-Haus 2.1 – DESIGN.md (visuelle Identität)
 
 Dieses Dokument legt fest, **wie IoT-Haus aussieht**. Wie es sich verhält (Informationsarchitektur, Zustände, Interaktion, Barrierefreiheit, Texte), steht in [`EXPERIENCE.md`](EXPERIENCE.md). Beide Spines gehen jedem Mock, jeder Skizze und jedem Import vor. Es gibt in diesem Lauf keine Mockups oder Wireframes als Dateien; die ASCII-Wireframes in `EXPERIENCE.md` sind verbindlich.
 
@@ -257,6 +291,8 @@ IoT-Haus macht unsichtbaren Strom sichtbar. Die Oberfläche ist ein **ruhiges Me
 Die bisherige Optik (Verläufe, animierte Blobs, Hover-Skalierung ganzer Panels, Garten mit Blumen) entfällt vollständig (FR-25, Befund U-05). An ihre Stelle treten flache Karten, klare Typografie und Bewegung, die nur Zustandswechsel erklärt. Die Zahl ist der Held: Sie zählt beim Schalten hoch, ein kleiner Delta-Chip zeigt „+1.199 W“, und die Laststufe wechselt ihre Farbe. Mehr Effekte gibt es bewusst nicht (SM-C2).
 
 Hell und Dunkel sind gleichwertig gestaltet. Dunkel ist kein invertiertes Hell: Flächen sind tiefes Nachtblau, das Bernstein wird heller und leuchtet stärker, damit Mehmet auf dem Sofa (UJ-3) das Haus wie bei Nacht sieht.
+
+**Seit 2.1** gibt es eine zweite, streng begrenzte Akzentfarbe: **Petrol `solar`** bedeutet ausschließlich „Erzeugung / Einspeisung durch die Solaranlage“. Bernstein bleibt „ist an / verbraucht“, Grün bleibt „weniger / ok“. Der Hausverbrauch bleibt der Held (E-19); die Netzbilanz ist eine ruhige zweite Größe ohne Animation.
 
 ## Colors
 
@@ -365,6 +401,34 @@ Laststufen nutzen eine gedämpfte Ampel, immer mit Text und Balkensymbol (FR-12,
 
 `room-lit` und `room-off` unterscheiden sich im Farbton, kaum in der Helligkeit (hell 1,03:1). Deshalb trägt ein leuchtender Raum immer **zusätzlich** den `on`-Rand (≥ 3:1) und ein Glühbirnen-Symbol. Die Fläche allein ist nie Bedeutungsträger.
 
+### Solaranlage (seit 2.1)
+
+Neue Rollen: 34 → **36 je Theme** (K-01). Farbton Petrol/Teal, bewusst verschieden von Bernstein `on` und Grün (`load-low`, `delta-down`, `status-ok`), E-28.
+
+| Rolle | Hell | Dunkel | Einsatz |
+|---|---|---|---|
+| `solar` | `#0F766E` | `#2DD4BF` | Solarwert und -symbol im Kopf, Erzeugung, Dach-Solartext, Modulkontur, Toast-Art `solar` |
+| `solar-soft` | `#CCFBF1` | `#0B2F2C` | Symbolkreis der Solaranlage, Modulfüllung bei Erzeugung > 0 |
+
+Kontraste (WCAG-2.x-Formel, berechnet 2026-09-27; alle Paare stehen in `KONTRAST_PAARE`, K-05):
+
+| Paar | Hell | Dunkel | Soll |
+|---|---|---|---|
+| `solar` / `surface` | 5,47:1 | 9,15:1 | ≥ 4,5 |
+| `solar` / `bg` | 5,06:1 | 10,12:1 | ≥ 4,5 |
+| `solar` / `surface-raised` | 5,47:1 | 8,34:1 | ≥ 4,5 |
+| `solar` / `surface-sunken` | 4,79:1 | 9,60:1 | ≥ 4,5 |
+| `solar` / `solar-soft` | 4,86:1 | 7,74:1 | ≥ 4,5 |
+| `solar` / `room-off` | 4,53:1 | 8,13:1 | ≥ 4,5 |
+| `ink` / `solar-soft` | 15,74:1 | 13,15:1 | ≥ 4,5 |
+| `ink-secondary` / `solar-soft` | 6,71:1 | 7,84:1 | ≥ 4,5 |
+| `focus` / `solar-soft` | 5,95:1 | 7,99:1 | ≥ 3 |
+| `ink-secondary` / `surface-sunken` (Akku-Balken auf Spur) | 6,62:1 | 9,73:1 | ≥ 3 |
+
+Laden nutzt bestehende Paare (`on`/`surface` 5,02/10,20; `on`/`room-off` 4,16/9,06). Akku-Balken: Spur `surface-sunken`, Füllung `ink-secondary` (neutral; „lädt“ trägt Text + Blitz `on`). In `globals.css` wird `@theme inline` um `--color-solar` und `--color-solar-soft` ergänzt.
+
+`solar` ist **nie** „an“, nie Marken- oder Erfolgsfarbe. Es heißt ausschließlich „Erzeugung / Einspeisung“.
+
 ### Browser-Theme-Farbe
 
 `theme-color` = Kopfbereichsfläche: hell `#FFFFFF`, dunkel `#131C2E` (FR-28).
@@ -400,13 +464,13 @@ Regeln:
 
 | Breite | Raster |
 |---|---|
-| < 768 px | Eine Spalte. Szenen 2 × 2. Raumkarten untereinander. |
-| 768–1023 px | Eine Spalte. Szenen 4 nebeneinander. Raumkarten in 2 Spalten (Abstand `{spacing.4}`). |
+| < 768 px | Eine Spalte. Szenen 2 × 2. Solaranlage-Karte zweizeilig (Werte, darunter Sonnenwahl). Raumkarten untereinander (Carport zuletzt). |
+| 768–1023 px | Eine Spalte. Szenen 4 nebeneinander. Solaranlage-Karte einzeilig (Werte links, Sonnenwahl rechts). Raumkarten in 2 Spalten (Abstand `{spacing.4}`). |
 | ≥ 1024 px | Zwei Spalten 5/12 + 7/12, Abstand `{spacing.6}`. Links: Hausansicht, darunter „Verbrauch nach Raum“. Rechts: Raumkarten (1 Spalte bis 1279 px, 2 Spalten ab 1280 px). Szenen 4 nebeneinander über beiden Spalten. |
 
 Vertikaler Rhythmus: zwischen Abschnitten `{spacing.8}`, zwischen Überschrift und Inhalt `{spacing.3}`, zwischen Karten `{spacing.4}`, zwischen Gerätezeilen `{spacing.1}`.
 
-Kopfbereich: `{spacing.header-height}` 116 px mobil (18 % von 640 px, Grenze FR-25: 30 %), `{spacing.header-height-desktop}` 88 px ab 1024 px, `{spacing.header-height-compact}` 64 px bei Viewport-Höhe ≤ 500 px (Querformat Handy, 200 % Zoom). Alle Sprungziele erhalten `scroll-margin-top` = aktuelle Kopfhöhe + 16 px.
+Kopfbereich: `{spacing.header-height}` **136 px** mobil (21 % von 640 px, Grenze FR-25: 30 %; bis 2.0: 116 px, seit 2.1 mit Netz-Zeile), `{spacing.header-height-desktop}` 88 px ab 1280 px (einzeilig inkl. Netzwerten), `{spacing.header-height-desktop-mid}` **112 px** bei 1024–1279 px (Netz-Zeile als zweite Zeile), `{spacing.header-height-compact}` 64 px bei Viewport-Höhe ≤ 500 px (Querformat Handy, 200 % Zoom). Alle Sprungziele erhalten `scroll-margin-top` = aktuelle Kopfhöhe + 16 px.
 
 Trefferflächen: mindestens `{spacing.hit-min}` 44 × 44 px; Gerätezeilen `{spacing.row-min-height}` 56 px.
 
@@ -433,31 +497,43 @@ Die Hausansicht ist bewusst eckiger (6 px) als die Karten: Sie ist ein Grundriss
 
 Verhalten, Texte und ARIA stehen in `EXPERIENCE.md` → Component Patterns. Hier nur Aussehen.
 
-- **App-Kopf (`app-header`)** – `surface`, sticky, Unterkante `border`. Mobil zwei Zeilen: Zeile 1 links „IoT-Haus“ (`label`, 600, mit 16-px-Haussymbol), rechts Statusanzeige. Zeile 2 links Beschriftung „Hausverbrauch“ (`label`, `ink-secondary`) über der Hero-Zahl; rechts, rechtsbündig untereinander, Laststufen-Pille und Kosten „0,45 €/h“ (`meta`, `ink`). Ab 1024 px eine Zeile: Marke · Hausverbrauch + Zahl · Pille · Kosten · Status (rechts). Kompakt (Höhe ≤ 500 px): eine Zeile ohne Marke und ohne Beschriftung, Zahl `display-compact`.
+- **App-Kopf (`app-header`)** – `surface`, sticky, Unterkante `border`. Mobil zwei Zeilen: Zeile 1 links „IoT-Haus“ (`label`, 600, mit 16-px-Haussymbol), rechts Statusanzeige. Zeile 2 links Beschriftung „Hausverbrauch“ (`label`, `ink-secondary`) über der Hero-Zahl; rechts, rechtsbündig untereinander, Laststufen-Pille und Kosten „0,45 €/h“ (`meta`, `ink`). Ab 1280 px eine Zeile: Marke · Hausverbrauch + Zahl · Pille · Kosten/Ertrag · Netz-Zeile · Status (rechts), 88 px; 1024–1279 px Netz-Zeile als zweite Zeile (112 px). Mobil kommt unter Zeile 2 die **Netz-Zeile** (136 px gesamt). Kompakt (Höhe ≤ 500 px): eine Zeile ohne Marke und ohne Beschriftung, Zahl `display-compact`, Netzwert ohne Solarwert („Netzbezug 2.745 W“ bzw. „Einspeisung …“).
+- **Netz-Zeile (`grid-line`, seit 2.1)** – `label`-Größe (13/16), Sonnen-Symbol 14 px und „Solar 8.330 W“ in `solar`, Trenner „·“, dann „Netzbezug 2.745 W“ bzw. „Einspeisung 8.252 W“ in `ink-secondary`, Zahl 600. Jede Zahl `tabular-nums` mit Mindestbreite `7ch`, damit nichts springt; kein Umbruch auf 360 px. Keine Fläche, keine Animation, keine Bedienelemente.
+- **Kosten/Ertrag** – ein Element an der Stelle der Kosten: „0,96 €/h“ wie bisher bzw. bei Einspeisung „Ertrag 0,66 €/h“ (`meta`, `ink`; das Wort trägt die Bedeutung, keine grüne oder Petrol-Einfärbung).
 - **Hero-Zahl (`power-hero`)** – `display-sm`/`display-lg`, `ink`, Einheit „W“ kleiner in `ink-secondary`. Feste Mindestbreite `7ch`, damit „12.978“ ohne Umbruch Platz hat und nichts springt.
 - **Delta-Chip (`delta-chip`)** – kleines Etikett „+1.199 W“ bzw. „−2.200 W“ in `meta`, 600, Farbe `delta-up`/`delta-down`, ohne Fläche, absolut positioniert oberhalb rechts der Hero-Zahl (überlagert die Beschriftung, keine Layoutverschiebung).
 - **Laststufen-Pille (`load-pill`)** – Pille, Höhe 24 px, Innenabstand 4/10 px, Symbol „Signalbalken“ 14 px (1, 2 oder 3 von 3 Balken gefüllt) + Text „niedrig“/„mittel“/„hoch“, Farben laut Tabelle.
 - **Statusanzeige (`status-indicator`)** – Symbol 12 px + Text (`label`). „Verbunden“: gefüllter Punkt `status-ok`. „Verbinde …“: Ring mit Lücke in `ink-secondary`, dreht sich (bei reduzierter Bewegung statisch). „Getrennt“: durchgestrichenes WLAN-Symbol + Text in `danger`.
 - **Übersichtsbereich** – kein Karten-Look, direkt auf `bg`, `meta`, `ink-secondary`, Zeilen mit Punkt-Trennern („·“). Info-Schaltfläche: Kreis-i 20 px in 44-px-Trefferfläche. Theme-Wahl: Segmentsteuerung, Höhe 36 px sichtbar (Trefferfläche 44 px durch Innenabstand), `surface-sunken`-Spur, gewähltes Segment `surface` mit Rand `border` und Text `ink`, nicht gewählte `ink-secondary`; Symbole Monitor/Sonne/Mond 16 px.
+- **Solaranlage (`solar-card`, seit 2.1)** – Karte `surface`, Rand `border`, `rounded.lg`, Innenabstand 16 px, h2 „Solaranlage“ darüber (`title`). Links Symbolkreis 40 px `solar-soft` mit Sonnen-Symbol `solar`; daneben „Erzeugung“ (`label`, `ink-secondary`) über „8.330 W“ (`title`, 600, `solar`, `tabular-nums`), rechts daneben „9,8 kWp“ (`meta`, `ink-secondary`); darunter „Heute erzeugt 12,40 kWh“ (`meta`, `ink-secondary`). Werte ohne Animation.
+- **Sonnenwahl (`sun-choice`)** – Legende „Sonne gerade“ (`label`, `ink-secondary`), darunter 5 Segmente im Look der Theme-Wahl (Spur `surface-sunken`, gewähltes Segment `surface` + Rand `border` + Text `ink`, sonst `ink-secondary`), Trefferfläche je Segment ≥ 44 px, Text `label`. Ab 768 px rechts in der Karte, darunter mobil; Umbruch in 2 Zeilen erlaubt (< 360 px, 200 % Zoom). Beschäftigt: kleiner Ladering + „wird eingestellt …“ (`label`). Gesperrt: Spur Deckkraft 0,55, Texte voll lesbar.
 - **Szenen-Schaltfläche (`scene-button`)** – Karte `surface`, Rand `border`, `rounded.lg`, min. 64 px hoch, Innenabstand 12 px. Links Symbol 24 px in `ink-secondary` (Filmabend: Filmklappe; Morgenroutine: Sonnenaufgang; Gute Nacht: Mond; Alles aus: Power-Symbol), rechts Name (`body-strong`) über Untertitel (`meta`, `ink-secondary`). Hover (Zeiger): Rand `ink-muted`. Gedrückt: Fläche `surface-sunken`. Beschäftigt: Symbol wird durch Ladering ersetzt, Text „Wird ausgeführt …“ ersetzt den Untertitel. Gesperrt: Deckkraft 0,55 für Symbol und Rand; Texte behalten volle Farbe.
 - **Hausansicht (`house-room-tile` + Rahmen)** – HTML-Raster mit dekorativem Inline-SVG-Dach (Dreieck `house-roof`, 2 px Kontur, keine Füllung außer `surface-sunken`) und Bodenlinie. Links schmale Spalte (28 px) mit Etagenbeschriftung „OG“/„EG“ (`label`, `ink-secondary`). Pro Etage 3 Räume gleich breit, Abstand 4 px, Außenwände als 2-px-Rand `house-roof` um das gesamte Raster. Raum: min. 72 px hoch (≥ 1024 px: 96 px), Innenabstand 8 px; Zeile 1 Raumname (`label`, 600, `ink`); Zeile 2 Raumverbrauch „271 W“ (`meta`, 600, `ink`); Zeile 3 „2 an“ (`label`, `ink-secondary`) und rechts bis zu 3 Mini-Symbole (14 px) eingeschalteter Geräte in `ink-secondary`, bei mehr „+2“. Leuchtend: Fläche `room-lit`, Rand 2 px `on`, Glühbirnen-Symbol 14 px `on` oben rechts, dazu ein weicher Lichtschein (`box-shadow: inset 0 -12px 24px` in `on-soft` hell bzw. `rgb(251 191 36 / 0.18)` dunkel). Hover: Rand `ink-muted`. Seitenverhältnis des Hauses 4:3 (mobil) bzw. 5:4 (≥ 1024 px).
-- **Raumkarte (`room-card`)** – `surface`, Rand `border`, `rounded.lg`, Innenabstand 16 px. Kopf: Name (`card-title`) und darunter „EG · 2 von 5 an“ (`meta`, `ink-secondary`); rechts Raumverbrauch (`title`, `tabular-nums`). Darunter Geräteliste. Fuß: Schaltfläche „Raum ausschalten“ (`button-secondary`, volle Breite mobil, rechtsbündig ab 768 px) mit Power-Symbol 16 px.
+- **Dach-Solar (`roof-panel`, seit 2.1)** – im dekorativen Dach-SVG (`aria-hidden`) 2 × 3 Module als Rechtecke mit 1-px-Fugen: Erzeugung > 0 → Füllung `solar-soft`, Kontur `solar`; sonst Füllung `surface-sunken`, Kontur `house-roof`. Darüber, im Dachdreieck zentriert, ein nicht interaktives Text-Element „☀ Solar 8.330 W“ (`label`, 600, `solar`, `tabular-nums`).
+- **Carport-Fläche (`carport-tile`, seit 2.1)** – unter der Bodenlinie eine eigene Zeile „Außen“ (Etagenspalte 28 px, `label`, `ink-secondary`), durch eine 1-px-Linie `border` vom Haus getrennt; die Fläche nimmt eine Rasterzelle rechts ein (mobil 1/3, gleiche Maße wie Räume, min. 72 px). Fläche `room-off`, Zeilen: „Carport“ (`label`, 600), Raumverbrauch (`meta`, 600), Autostatus „Auto lädt 64 %“ / „Auto zu Hause 50 %“ / „Auto unterwegs“ (`label`, `ink-secondary`). Lädt: 2-px-Rand `on` + Blitz-Symbol 14 px `on` oben rechts (nie nur Farbe: Text „lädt“). Kein Lichtschein. Hover: Rand `ink-muted`. Legende unter dem Haus: „Warm leuchtend: Licht ist an. Blitz: Auto lädt.“
+- **Raumkarte (`room-card`)** – `surface`, Rand `border`, `rounded.lg`, Innenabstand 16 px. Kopf: Name (`card-title`) und darunter „EG · 2 von 5 an“ (`meta`, `ink-secondary`); rechts Raumverbrauch (`title`, `tabular-nums`). Darunter Geräteliste. Fuß: Schaltfläche „Raum ausschalten“ (`button-secondary`, volle Breite mobil, rechtsbündig ab 768 px) mit Power-Symbol 16 px. **Carport-Karte (seit 2.1):** Kopf „Außen · 1 von 1 an“, statt des Fußes steht oben der Elektroauto-Block, darunter die Wallbox-Zeile; kein „Raum ausschalten“ (E-12).
+- **Elektroauto (seit 2.1)** – Block oben in der Carport-Karte, Innenabstand 8/12 px, `rounded.md`, direkt auf der Kartenfläche `surface`. Links Symbolkreis 40 px (`surface-sunken` + Auto-Symbol `ink-secondary`; beim Laden `on-soft` + Symbol `on`). Mitte „Elektroauto“ (`body-strong`), darunter Statuszeile (`meta`): „zu Hause · lädt · voll in 2 h 44 min“ („lädt“ mit Blitz 14 px in `on`, 600), „zu Hause · Akku voll“, „unterwegs · Akku 64 % bei Abfahrt“ (`ink-secondary`). Darunter „Akku 64 %“ (`meta`, 600, `tabular-nums`) mit Akku-Balken. Rechts „Wegfahren“/„Zurückkommen“ als `button-secondary` (≥ 44 px, mobil unter dem Text in voller Breite zulässig). Gesperrt: Schaltfläche Deckkraft 0,55, darunter Grund „Akku zu leer zum Wegfahren (mindestens 15 %).“ (`label`, `ink-secondary`); unterwegs zusätzlich Hinweis „Eine Fahrt verbraucht 15 % Akku.“ (`label`, `ink-muted`).
+- **Akku-Balken (`battery-bar`, seit 2.1)** – 8 px, `rounded.full`, Spur `surface-sunken`, Füllung `ink-secondary` (neutral), Breite per `transform: scaleX(anteil)`; Gleiten 250 ms wie Verbrauchsbalken, bei reduzierter Bewegung sofort. Kein Pulsieren beim Laden.
 - **Gerätezeile (`device-row`)** – ganze Zeile ist Schaltfläche, min. 56 px, Innenabstand 8/12 px, `rounded.md`. Links Symbolkreis 40 px (aus: `surface-sunken` + Symbol `ink-secondary`; an: `on-soft` + Symbol `on`). Mitte: Name (`body-strong`) mit Badges rechts daneben (umbrechend), darunter Leistungszeile (`meta`): an = „1.200 W“ in `ink` 600; aus mit Standby = „Standby 1,5 W“ in `ink-muted`; aus ohne Standby = „aus“ in `ink-muted`; Restzeit „· noch 2:48“ mit Uhrsymbol 14 px in `ink`. Rechts der Schalter. Auto-Aus-Fortschritt: 2-px-Linie am Zeilenunterrand, `on`, Breite = Restanteil (per `transform: scaleX`). Hover (Zeiger): Fläche `surface-sunken`. Beschäftigt: Leistungszeile „wird geschaltet …“, Knopf mit Ladering. Gesperrt: Schalter Deckkraft 0,55, Text unverändert.
+- **Wallbox-Zeile (seit 2.1)** – normale Gerätezeile mit Wallbox-Symbol; gesperrt mit Grund: Leistungszeile „Standby 3 W · Auto unterwegs“ bzw. „Standby 3 W · Akku voll“ (`ink-muted`), Schalter Deckkraft 0,55. Beim Laden wie jedes Gerät *An* („11.000 W“, Bernstein).
 - **Schalter (`device-switch`)** – Spur 44 × 26 px, Knopf 20 px. *An*: Spur `on`, Knopf `on-contrast` rechts, im Knopf ein 8-px-Häkchen in `on`. *Aus*: Spur transparent mit 2-px-Rand `switch-off`, Knopf `switch-off` links. Die Knopfposition plus Häkchen und die Leistungszeile tragen den Zustand ohne Farbe (FR-27).
 - **Badge (`badge`)** – „Grundlast“ mit Schildsymbol 12 px, „Auto-Aus 3 min“ mit Uhrsymbol 12 px; `surface-sunken`, `ink-secondary`, `label`, Höhe 20 px, Innenabstand 2/8 px.
 - **Verbrauch nach Raum** – Liste auf `surface`-Karte. Zeile: Raumname (`body`) links, rechts „1.236 W“ (`meta`, 600) und „64 %“ (`meta`, `ink-secondary`, feste Breite 4ch rechtsbündig); darunter Balken (`consumption-bar`) 8 px, Spur `surface-sunken`, Füllung `on`, Breite per `transform: scaleX(anteil)` mit `transform-origin: left`.
-- **Toast (`toast`)** – `surface-raised`, `rounded.lg`, Ebene 2, Innenabstand 12/16 px, Breite `min(100% − 32px, 380px)`. Links Symbol 20 px (Pfeil hoch `delta-up`, Pfeil runter `delta-down`, Hinweis-i `ink-secondary`, Warn-Dreieck `danger`), Mitte Text (`meta`, `ink`, Differenz in 600 und Deltafarbe), rechts Schließen-Schaltfläche (Kreuz 16 px, Trefferfläche 44 px). Mobil unten zentriert, ab 768 px unten rechts; Abstand 16 px zum Rand plus `env(safe-area-inset-bottom)`; Stapel wächst nach oben, Abstand 8 px.
+- **Toast (`toast`)** – `surface-raised`, `rounded.lg`, Ebene 2, Innenabstand 12/16 px, Breite `min(100% − 32px, 380px)`. Links Symbol 20 px (Pfeil hoch `delta-up`, Pfeil runter `delta-down`, Hinweis-i `ink-secondary`, Warn-Dreieck `danger`, seit 2.1 Sonne `solar` für Art `solar`), Mitte Text (`meta`, `ink`, Differenz in 600 und Deltafarbe), rechts Schließen-Schaltfläche (Kreuz 16 px, Trefferfläche 44 px). Mobil unten zentriert, ab 768 px unten rechts; Abstand 16 px zum Rand plus `env(safe-area-inset-bottom)`; Stapel wächst nach oben, Abstand 8 px.
 - **Banner (`banner`)** – fest am unteren Rand über der Toast-Zone, volle Breite mobil (16 px Rand), ab 768 px maximal 640 px zentriert. `rounded.lg`, Innenabstand 12/16 px, Warnsymbol 20 px links. Getrennt: Warnfarben; Neue Version: Infofarben. Aktion rechts (≥ 480 px) bzw. darunter volle Breite (< 480 px) als `button-primary`. Nebentext „Nächster Versuch in 8 s“ in `label`.
 - **Grundlast-Dialog (`dialog`)** – natives `<dialog>`, `surface-raised`, `rounded.lg`, max. 420 px, Innenabstand 24 px. Titel `title`, Text `body` in `ink-secondary`. Aktionen rechtsbündig, mobil untereinander in voller Breite: „Abbrechen“ (`button-secondary`) und „Ausschalten“ (`button-danger`). DOM-Reihenfolge: Abbrechen zuerst.
 - **Skeleton (`skeleton`)** – Blöcke `surface-sunken`, `rounded.sm`, in der Größe des späteren Inhalts (Hero-Zahl 5ch × 40 px, Leistungszeile 8ch × 14 px, Schalter 44 × 26 px `rounded.full`). Pulsieren der Deckkraft 1 → 0,6 → 1 in 1,6 s, bei reduzierter Bewegung statisch.
 - **Fokusrahmen (`focus-ring`)** – `outline: 2px solid var(--c-focus); outline-offset: 2px` über `:focus-visible`; auf Gerätezeilen `outline-offset: -2px` (innen), damit Nachbarzeilen ihn nicht verdecken.
-- **Symbole** – eine Komponente `Icon` mit Inline-SVG 24 × 24, `stroke="currentColor"`, Strichstärke 1,75, runde Enden; im Lucide-Stil selbst gezeichnet (Übernahme von Lucide-Pfaden ist erlaubt, ISC-Lizenz, Hinweis in der Datei). Immer `aria-hidden="true"` und `focusable="false"`. Benötigte Namen (Gerätekatalog-Feld `symbol`): `lampe` (alle Decken-, Steh-, Nachttisch-, Schreibtischlampen, Spiegelleuchte), `fernseher`, `soundbar`, `spielkonsole`, `kuehlschrank`, `gefrierschrank`, `mikrowelle`, `backofen`, `wasserkocher`, `kaffeemaschine`, `geschirrspueler`, `waschmaschine`, `trockner`, `foehn`, `heizluefter`, `pc`, `monitor`, `router`; UI: `haus`, `verbunden`, `verbinde`, `getrennt`, `info`, `schliessen`, `pfeil-hoch`, `pfeil-runter`, `warnung`, `uhr`, `schild`, `power`, `film`, `sonnenaufgang`, `mond`, `sonne`, `monitor-system`, `laststufe-1`, `laststufe-2`, `laststufe-3`, `haekchen`. Emojis werden nicht mehr verwendet.
+- **Symbole** – eine Komponente `Icon` mit Inline-SVG 24 × 24, `stroke="currentColor"`, Strichstärke 1,75, runde Enden; im Lucide-Stil selbst gezeichnet (Übernahme von Lucide-Pfaden ist erlaubt, ISC-Lizenz, Hinweis in der Datei). Immer `aria-hidden="true"` und `focusable="false"`. Benötigte Namen (Gerätekatalog-Feld `symbol`): `lampe` (alle Decken-, Steh-, Nachttisch-, Schreibtischlampen, Spiegelleuchte), `fernseher`, `soundbar`, `spielkonsole`, `kuehlschrank`, `gefrierschrank`, `mikrowelle`, `backofen`, `wasserkocher`, `kaffeemaschine`, `geschirrspueler`, `waschmaschine`, `trockner`, `foehn`, `heizluefter`, `pc`, `monitor`, `router`, `wallbox` (seit 2.1, `GERAETE_SYMBOL.wallbox = 'wallbox'`); UI: `haus`, `verbunden`, `verbinde`, `getrennt`, `info`, `schliessen`, `pfeil-hoch`, `pfeil-runter`, `warnung`, `uhr`, `schild`, `power`, `film`, `sonnenaufgang`, `mond`, `sonne`, `monitor-system`, `laststufe-1`, `laststufe-2`, `laststufe-3`, `haekchen`, seit 2.1 `auto`, `blitz`, `solar` (Solarmodul/Sonne für Erzeugung; `sonne` bleibt Theme-Symbol). Emojis werden nicht mehr verwendet.
 
 ## Do's and Don'ts
 
 | Do | Don't |
 |---|---|
 | Bernstein `on` ausschließlich für „ist an / verbraucht“ | Bernstein als Deko, Marken- oder Warnfarbe |
+| `solar` ausschließlich für Erzeugung/Einspeisung | `solar` für „an“, für Laden, Erfolg oder als Markenfarbe |
+| Einspeisung, Netzbezug, Ertrag als Wörter | Netzrichtung nur über Farbe oder Vorzeichen beim Geld |
+| Laden = Text „lädt“ + Blitz `on` | Dauer-Pulsieren oder Animation beim Laden |
 | Laststufe immer mit Text + Balkensymbol + Farbe | Laststufe nur als Farbfläche oder Punkt |
 | Zahlen mit `tabular-nums` und fester Mindestbreite | Zahlen, deren Breite beim Hochzählen springt |
 | Leuchtender Raum = Fläche **und** `on`-Rand **und** Glühbirne | Raumzustand nur über Füllfarbe |

@@ -14,6 +14,8 @@ export interface ServerOptionen {
   hostname?: string;
   mqttUrl: string;
   strompreis: number;
+  /** €/kWh für Einspeisung (Standard 0,08) */
+  einspeiseverguetung?: number;
   version: string;
   log: Logger;
   /** Optionale Host-Allowlist gegen DNS-Rebinding (ERLAUBTE_HOSTS); leer = jeder Host */
@@ -42,6 +44,7 @@ function lehneAb(socket: Duplex, status: number, text: string): void {
 
 export async function erstelleServer(opts: ServerOptionen): Promise<LaufenderServer> {
   const { log, version, strompreis } = opts;
+  const einspeiseverguetung = opts.einspeiseverguetung ?? 0.08;
   const jetzt = opts.jetzt ?? Date.now;
   const speicher = new MqttSpeicher(opts.mqttUrl, log);
   let dienst: Zustandsdienst | null = null;
@@ -51,7 +54,7 @@ export async function erstelleServer(opts: ServerOptionen): Promise<LaufenderSer
 
   const verbindungen = new WsVerbindungen(
     () => (bereit ? dienst : null),
-    () => (bereit && dienst ? dienst.snapshot(version, strompreis) : null),
+    () => (bereit && dienst ? dienst.snapshot(version, strompreis, einspeiseverguetung) : null),
     log,
   );
 

@@ -2,7 +2,7 @@
 
 // Übersichtsbereich: Standby-Anteil, Tageswerte mit Info-Hinweis, Strompreis, Darstellung (FR-9, FR-10, FR-13, FR-28).
 import { euro, kwh, strompreis as strompreisText, wattEineStelle, zahl } from '@/domain/format';
-import { standbyAnteil } from '@/domain/verbrauch';
+import { standbyAnteil, tagesKosten } from '@/domain/verbrauch';
 import { useHaus } from '@/hooks/useHaus';
 import { T } from '@/ui/texte';
 import { InfoKnopf, InfoText, useInfoHinweis } from './InfoHinweis';
@@ -23,7 +23,10 @@ export function Uebersicht() {
   const info = useInfoHinweis();
   const server = zustand.server;
   const standby = server ? standbyAnteil(server.zustand) : 0;
-  const kosten = server ? (server.energie.wh / 1000) * server.strompreis : 0;
+  // Netto-Tageskosten; negativ = Ertrag (FR-10, FR-42)
+  const netto = server ? tagesKosten(server.energie, server.strompreis, server.einspeiseverguetung) : 0;
+  const ertrag = netto < 0;
+  const betrag = Math.abs(netto);
 
   return (
     <section aria-labelledby="uebersicht-titel" className="text-sm text-ink-secondary">
@@ -51,8 +54,8 @@ export function Uebersicht() {
             <p className="zahlen">
               {server ? (
                 <Wert
-                  sichtbar={`${T.uebersicht.heute} ${kwh(server.energie.wh)} · ${euro(kosten)}`}
-                  gesprochen={T.uebersicht.heuteSr(zahl(server.energie.wh / 1000, 2), zahl(kosten, 2))}
+                  sichtbar={`${T.uebersicht.heute} ${kwh(server.energie.wh)} · ${ertrag ? `${T.uebersicht.heuteErtrag} ` : ''}${euro(betrag)}`}
+                  gesprochen={T.uebersicht.heuteSr(zahl(server.energie.wh / 1000, 2), zahl(betrag, 2), ertrag)}
                 />
               ) : (
                 <>
@@ -65,12 +68,32 @@ export function Uebersicht() {
           <span aria-hidden="true" className="hidden lg:inline">
             ·
           </span>
+          {server && (
+            <p className="zahlen">
+              <Wert
+                sichtbar={T.uebersicht.netzHeute(kwh(server.energie.bezugWh), kwh(server.energie.einspeisungWh))}
+                gesprochen={T.uebersicht.netzHeuteSr(
+                  zahl(server.energie.bezugWh / 1000, 2),
+                  zahl(server.energie.einspeisungWh / 1000, 2),
+                )}
+              />
+            </p>
+          )}
+          <span aria-hidden="true" className="hidden lg:inline">
+            ·
+          </span>
           <p className="zahlen">
             {server ? (
-              <Wert
-                sichtbar={`${T.uebersicht.strompreis} ${strompreisText(server.strompreis)}`}
-                gesprochen={T.uebersicht.strompreisSr(zahl(server.strompreis, 2))}
-              />
+              <>
+                <Wert
+                  sichtbar={`${T.uebersicht.strompreis} ${strompreisText(server.strompreis)} · `}
+                  gesprochen={`${T.uebersicht.strompreisSr(zahl(server.strompreis, 2))}, `}
+                />
+                <Wert
+                  sichtbar={`${T.uebersicht.verguetung} ${strompreisText(server.einspeiseverguetung)}`}
+                  gesprochen={T.uebersicht.verguetungSr(zahl(server.einspeiseverguetung, 2))}
+                />
+              </>
             ) : (
               <>
                 {T.uebersicht.strompreis} <Skeleton className="h-3.5 w-20 align-middle" />

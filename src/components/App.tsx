@@ -13,6 +13,7 @@ import { LiveRegion } from './LiveRegion';
 import { Meldungen } from './Meldungen';
 import { Raeume } from './Raeume';
 import { Erstfehler } from './Skeleton';
+import { Solaranlage } from './Solaranlage';
 import { Sprunglink } from './Sprunglink';
 import { Szenenleiste } from './Szenenleiste';
 import { Uebersicht } from './Uebersicht';
@@ -37,6 +38,7 @@ function Seite() {
         {laden && zustand.fehlversuche > 0 && <Erstfehler titel={T.erstfehler.titel} text={T.erstfehler.text} />}
         <Uebersicht />
         <Szenenleiste />
+        <Solaranlage />
         <div className="grid gap-8 lg:grid-cols-12 lg:gap-6">
           {/* Schmal: Hausansicht, Räume, Verbrauch nach Raum (FR-25) – die linke Spalte löst sich per
               display:contents auf, „Verbrauch nach Raum“ rückt per order ans Ende (nicht interaktiv,

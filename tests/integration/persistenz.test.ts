@@ -28,7 +28,9 @@ describe('Persistenz über Neustarts (FR-17)', () => {
     const a = await TestClient.verbinde(s1.port);
     a.sende({ typ: 'szene', id: 'n1', szene: 'filmabend' });
     a.sende({ typ: 'schalten', id: 'n2', geraet: 'kueche.kuehlschrank', an: false });
-    await a.warte((n) => n.typ === 'bestaetigt' && n.befehlId === 'n2');
+    a.sende({ typ: 'sonne', id: 'n3', stufe: 'sonnig' });
+    a.sende({ typ: 'auto', id: 'n4', zuhause: false });
+    await a.warte((n) => n.typ === 'bestaetigt' && n.befehlId === 'n4');
     const vorher = a.zustand();
     a.schliesse();
     await s1.schliessen();
@@ -40,6 +42,24 @@ describe('Persistenz über Neustarts (FR-17)', () => {
     expect(b.zustand()).toEqual(vorher);
     expect(b.zustand()['wohnzimmer.fernseher']).toBe(true);
     expect(b.zustand()['kueche.kuehlschrank']).toBe(false);
+    const snap = b.nachrichten[0];
+    expect(snap.typ === 'snapshot' && snap.sonne.stufe).toBe('sonnig');
+    expect(snap.typ === 'snapshot' && snap.auto.zuhause).toBe(false);
+  });
+
+  it('liest den Tagesverbrauch aus 2.0 (Energie v1) als Netzbezug (AC-18)', async () => {
+    const broker = await starteBroker();
+    aufraeumen.push(() => broker.stoppe());
+    const heute = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date());
+    const pub = await mqtt.connectAsync(broker.url);
+    await pub.publishAsync('iot-haus/v2/energie/heute', JSON.stringify({ v: 1, datum: heute, wh: 3420, stand: Date.now() }), { retain: true, qos: 1 });
+    await pub.endAsync();
+    const s = await starteServer(broker.url);
+    aufraeumen.push(() => s.schliessen());
+    const c = await TestClient.verbinde(s.port);
+    aufraeumen.push(() => c.schliesse());
+    const snap = c.nachrichten[0];
+    expect(snap.typ === 'snapshot' && snap.energie).toMatchObject({ datum: heute, bezugWh: 3420, einspeisungWh: 0 });
   });
 
   it('ignoriert unbekannte und kaputte gespeicherte Nachrichten', async () => {

@@ -1,4 +1,4 @@
-# IoT-Haus 2.0 – Entwicklung
+# IoT-Haus 2.1 – Entwicklung
 
 ## Voraussetzungen
 
@@ -33,25 +33,32 @@ Alternativ läuft alles im Container: `npm run compose:up`.
 ## Umgebungsvariablen
 
 `PORT` (3000), `HOSTNAME` (0.0.0.0), `MQTT_BROKER_HOST` (127.0.0.1), `MQTT_BROKER_PORT` (1883), `STROMPREIS_EUR_PRO_KWH` (0.35),
+`EINSPEISEVERGUETUNG_EUR_PRO_KWH` (0.08),
 `ERLAUBTE_HOSTS` (leer = keine Host-Prüfung; lokal ggf. `localhost`), `NODE_ENV` (≠ `production` → Dev-Modus).
 
 UI-Texte stehen zentral in `src/ui/texte.ts`; Zahlen immer über `src/domain/format.ts` formatieren (Einheit mit U+202F).
+Geräte-IDs nur in `src/domain/`: Die Wallbox wird außerhalb über `ELEKTROAUTO.ladegeraet` angesprochen, nie als Literal
+(Architekturtest). Fachregeln für Laden und Wegfahren gehören in `src/domain/befehle.ts` (`pruefeRegel`), nicht in Komponenten.
+
+**Ausprobieren (2.1):** Unter „Solaranlage“ „Sonnig“ wählen → Kopf „Solar 8.330 W · Einspeisung 8.252 W“, „Ertrag 0,66 €/h“.
+In der Carport-Karte die Wallbox einschalten → 11.075 W, „Netzbezug 2.745 W“, „0,96 €/h“, „voll in 2 h 44 min“. Laden von 50 % auf 100 %
+dauert real 2 h 44 min; in Tests laufen Akku und Akku-voll-Timer deshalb nur mit Fake-Timern.
 
 ## Tests
 
 ```bash
 npm test                   # alle Tests
-npm test -- --coverage     # mit Abdeckung (Schwelle 90 % Zeilen: src/domain/**, server/zustandsdienst.ts)
+npm test -- --coverage     # mit Abdeckung (Schwelle 90 % Zeilen: src/domain/**, server/zustandsdienst.ts; Stand 2.1: 338 Tests, 99 %)
 npx vitest run server      # nur ein Bereich
 ```
 
 | Ebene | Ort |
 |---|---|
-| Domäne | `src/domain/*.test.ts` (Katalog, Summen, Laststufen, Szenen, Befehlsprüfung, Energie inkl. Zeitumstellung, Formatierer) |
-| Server | `server/*.test.ts` (Zustandsdienst mit Fake-Timern, Konfiguration) |
+| Domäne | `src/domain/*.test.ts` (Katalog, Summen, Laststufen, Szenen, Befehlsprüfung und Regeln, Energie inkl. Zeitumstellung und Dreifach-Integration, Formatierer; `solar-auto.test.ts` für Solaranlage, Akku, Laden, Wegfahren) |
+| Server | `server/*.test.ts` (Zustandsdienst mit Fake-Timern inkl. Akku voll, Wegfahren, Restore-Normalisierung; MQTT-Speicher mit Energie-Migration v1→v2; Konfiguration inkl. Einspeisevergütung) |
 | Client | `src/client/*.test.ts` (Reducer, Verbindung) |
 | Komponenten | `src/components/App.test.tsx` (jsdom, Testing Library, axe hell/dunkel) |
-| Integration | `tests/integration/*.test.ts` (echter Server + aedes + `ws`-Clients: Snapshot, Mehrclient, Fehler, Origin, Health, Persistenz, Broker-Ausfall) |
+| Integration | `tests/integration/*.test.ts` (echter Server + aedes + `ws`-Clients: Snapshot, Mehrclient, Fehler inkl. `NICHT_MOEGLICH`, `sonne`/`auto` an mehrere Clients, Origin, Health, Persistenz von Auto/Sonne/Energie v1, Broker-Ausfall) |
 | Architektur | `tests/architektur/*.test.ts` (Geräte-IDs nur in der Domäne, Domäne ohne Fremdimporte, keine englischen Resttexte, kein `console.log`, Dockerfile-Härtung, Kontraste) |
 
 Komponententests setzen jsdom per Docblock `// @vitest-environment jsdom`; Standard ist `node`.

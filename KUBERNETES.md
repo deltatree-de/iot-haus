@@ -1,4 +1,4 @@
-# IoT-Haus 2.0 – Kubernetes
+# IoT-Haus 2.1 – Kubernetes
 
 Das Repository enthält keine fertigen Manifeste. Die folgenden Beispiele sind eine vollständige, minimale Vorlage:
 Namespace, PersistentVolumeClaim, Deployment, Service und Ingress. Namen, StorageClass und Hostname an den Cluster anpassen.
@@ -7,7 +7,7 @@ Namespace, PersistentVolumeClaim, Deployment, Service und Ingress. Namen, Storag
 
 IoT-Haus läuft als **ein** Pod mit **einer** Replik, und das bleibt so:
 
-- Der Zustand (28 Geräte, Tagesverbrauch, Auto-Aus-Timer) liegt autoritativ im Speicher des Node-Servers und wird im
+- Der Zustand (29 Geräte, Elektroauto, Sonnenlage, Tagesenergie, Auto-Aus- und Akku-voll-Timer) liegt autoritativ im Speicher des Node-Servers und wird im
   **eingebetteten Mosquitto desselben Containers** gespeichert (Volume `/var/lib/mosquitto`).
 - Zwei Repliken hätten zwei unabhängige Server mit je eigenem Broker. Browser, die der Service auf verschiedene Pods verteilt,
   würden unterschiedliche Häuser sehen, Änderungen erreichten nur einen Teil der Clients, und zwei Pods würden um dasselbe Volume
@@ -63,13 +63,15 @@ spec:
         fsGroup: 1000         # Volume für UID 1000 beschreibbar
       containers:
         - name: iot-haus
-          image: ghcr.io/deltatree-de/iot-haus:2.0.0   # oder :latest mit imagePullPolicy: Always
+          image: ghcr.io/deltatree-de/iot-haus:2.1.0   # oder :latest mit imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 3000
           env:
             - name: STROMPREIS_EUR_PRO_KWH
               value: "0.35"
+            - name: EINSPEISEVERGUETUNG_EUR_PRO_KWH   # seit 2.1, Standard 0.08
+              value: "0.08"
             - name: ERLAUBTE_HOSTS          # Schutz gegen DNS-Rebinding, Hostnamen ohne Port
               value: "haus.example.de"
           volumeMounts:
@@ -202,9 +204,12 @@ nicht aus; maßgeblich sind die Probes. Probes kommen über die Pod-IP und nicht
 ## Update und Rückkehr zu einer Version
 
 ```bash
-kubectl -n iot-haus set image deploy/iot-haus iot-haus=ghcr.io/deltatree-de/iot-haus:2.0.0
+kubectl -n iot-haus set image deploy/iot-haus iot-haus=ghcr.io/deltatree-de/iot-haus:2.1.0
 kubectl -n iot-haus rollout status deploy/iot-haus
 ```
+
+Das Update von 2.0.x auf 2.1.0 braucht keinen manuellen Schritt: Der Tagesverbrauch aus 2.0 wird übernommen, offene 2.0-Tabs zeigen
+„Neue Version verfügbar“. Die neue Variable `EINSPEISEVERGUETUNG_EUR_PRO_KWH` ist optional.
 
 Mit `:latest` genügt `kubectl -n iot-haus rollout restart deploy/iot-haus` (bei `imagePullPolicy: Always`). Der Zustand bleibt im PVC
 erhalten. Für feste Stände die Tags `:<version>` oder `:sha-<kurz>` verwenden (siehe [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md)).

@@ -29,6 +29,7 @@ const MELDUNGEN: Record<FehlerCode, string> = {
   UNBEKANNTER_RAUM: 'Unbekannter Raum.',
   ALTES_PROTOKOLL: 'Veraltetes Protokoll. Bitte die Seite neu laden.',
   ZU_VIELE_BEFEHLE: 'Zu viele Befehle. Bitte kurz warten.',
+  NICHT_MOEGLICH: 'Aktion ist im aktuellen Zustand nicht möglich.',
 };
 
 /** Befehlskennung einer (kleinen) Nachricht, damit auch abgelehnte Befehle zugeordnet werden können. */
@@ -168,15 +169,16 @@ export class WsVerbindungen {
       ws.close(1013, 'nicht bereit');
       return;
     }
-    const geaendert = dienst.fuehreAus(ergebnis.befehl);
-    this.log.info('befehl', { typ: ergebnis.befehl.typ, ergebnis: geaendert ? 'ok' : 'keine_aenderung' });
-    this.sende(ws, { typ: 'bestaetigt', befehlId: ergebnis.befehl.id, geaendert });
+    const ausfuehrung = dienst.fuehreAus(ergebnis.befehl);
+    if (!ausfuehrung.ok) return this.fehler(ws, ausfuehrung.code, ergebnis.befehl.id, ergebnis.befehl.typ);
+    this.log.info('befehl', { typ: ergebnis.befehl.typ, ergebnis: ausfuehrung.geaendert ? 'ok' : 'keine_aenderung' });
+    this.sende(ws, { typ: 'bestaetigt', befehlId: ergebnis.befehl.id, geaendert: ausfuehrung.geaendert });
   }
 
-  private fehler(ws: Lebendig, code: FehlerCode, befehlId: string | null): void {
+  private fehler(ws: Lebendig, code: FehlerCode, befehlId: string | null, typ?: string): void {
     const jetzt = performance.now();
     if (jetzt >= (ws.logBis ?? 0)) {
-      this.log.warn('befehl', { ergebnis: code, unterdrueckt: ws.unterdrueckt || undefined });
+      this.log.warn('befehl', { typ, ergebnis: code, unterdrueckt: ws.unterdrueckt || undefined });
       ws.logBis = jetzt + LOG_PAUSE_MS;
       ws.unterdrueckt = 0;
     } else {

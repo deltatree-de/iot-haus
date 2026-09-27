@@ -1,6 +1,8 @@
 // Befehlsprüfung und -anwendung (PRD FR-3, FR-18, FR-22, FR-27). Reine Funktionen.
+import { darfLaden, darfWegfahren, ELEKTROAUTO, istVoll, akkuWhBei, type AutoZustand } from './elektroauto';
 import { GERAETE, GERAETE_IDS, istGeraetId, istRaumId, type GeraetId } from './katalog';
 import { BEFEHL_ID_MUSTER, type Befehl, type FehlerCode, type HausZustand } from './protokoll';
+import { istSonnenStufe } from './solar';
 import { istSzeneId, szenenZiele } from './szenen';
 
 /** Ausgangszustand beim allerersten Start: nur Grundlastgeräte an (FR-4). */
@@ -18,6 +20,8 @@ const FELDER: Record<Befehl['typ'], string[]> = {
   schalten: ['typ', 'id', 'geraet', 'an'],
   szene: ['typ', 'id', 'szene'],
   raumAus: ['typ', 'id', 'raum'],
+  sonne: ['typ', 'id', 'stufe'],
+  auto: ['typ', 'id', 'zuhause'],
 };
 
 function istObjekt(wert: unknown): wert is Record<string, unknown> {
@@ -48,10 +52,50 @@ export function pruefeBefehl(json: unknown): Pruefergebnis {
     case 'szene':
       if (!istSzeneId(json.szene)) return { ok: false, code: 'UNBEKANNTE_SZENE', befehlId };
       return { ok: true, befehl: { typ, id: befehlId, szene: json.szene } };
+    case 'sonne':
+      if (!istSonnenStufe(json.stufe)) return { ok: false, code: 'UNGUELTIGER_BEFEHL', befehlId };
+      return { ok: true, befehl: { typ, id: befehlId, stufe: json.stufe } };
+    case 'auto':
+      if (typeof json.zuhause !== 'boolean') return { ok: false, code: 'UNGUELTIGER_BEFEHL', befehlId };
+      return { ok: true, befehl: { typ, id: befehlId, zuhause: json.zuhause } };
     default:
       if (!istRaumId(json.raum)) return { ok: false, code: 'UNBEKANNTER_RAUM', befehlId };
       return { ok: true, befehl: { typ: 'raumAus', id: befehlId, raum: json.raum } };
   }
+}
+
+/**
+ * Fachliche Regeln (FR-38, FR-39): Laden nur mit Auto zu Hause und Akku < 100 %, Wegfahren nur ab 15 %.
+ * Liefert `NICHT_MOEGLICH` bei Verstoß, sonst null. Befehle ohne Wirkung (Zielzustand schon erreicht)
+ * sind kein Verstoß.
+ */
+export function pruefeRegel(
+  zustand: HausZustand,
+  auto: AutoZustand,
+  befehl: Befehl,
+  jetzt: number,
+): 'NICHT_MOEGLICH' | null {
+  const wallbox = ELEKTROAUTO.ladegeraet;
+  const laedt = zustand[wallbox].an;
+  if (befehl.typ === 'schalten' && befehl.geraet === wallbox && befehl.an && !laedt) {
+    return darfLaden(auto, jetzt) ? null : 'NICHT_MOEGLICH';
+  }
+  if (befehl.typ === 'auto' && !befehl.zuhause && auto.zuhause) {
+    return darfWegfahren(auto, laedt, jetzt) ? null : 'NICHT_MOEGLICH';
+  }
+  return null;
+}
+
+/** Ziel „Wallbox aus“, wenn das Auto unterwegs oder der Akku voll ist (Restore, Wegfahren, Akku voll). */
+export function erzwingeLadeRegeln(
+  zustand: HausZustand,
+  auto: AutoZustand,
+  jetzt: number,
+): Partial<Record<GeraetId, boolean>> {
+  const wallbox = ELEKTROAUTO.ladegeraet;
+  if (!zustand[wallbox].an) return {};
+  const voll = istVoll(akkuWhBei(auto, true, jetzt));
+  return !auto.zuhause || voll ? { [wallbox]: false } : {};
 }
 
 /** Zielzustände, die ein Befehl setzen will. Grundlast nur beim Einzelschalten. */
@@ -68,6 +112,10 @@ export function befehlsZiele(befehl: Befehl): Partial<Record<GeraetId, boolean>>
       }
       return ziele;
     }
+    // Sonnenlage und Auto ändern keine Gerätezustände direkt (Laden-Ende regelt erzwingeLadeRegeln)
+    case 'sonne':
+    case 'auto':
+      return {};
   }
 }
 

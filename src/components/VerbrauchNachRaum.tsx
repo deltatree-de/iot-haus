@@ -2,7 +2,7 @@
 
 // „Verbrauch nach Raum“: alle Räume absteigend mit Balken und Prozent (FR-7).
 import { useId } from 'react';
-import { raumById } from '@/domain/katalog';
+import { RAEUME, raumById } from '@/domain/katalog';
 import { prozent, watt } from '@/domain/format';
 import { runden, verbrauchNachRaum } from '@/domain/verbrauch';
 import { useHaus } from '@/hooks/useHaus';
@@ -41,8 +41,8 @@ export function VerbrauchNachRaum({ className }: { className?: string }) {
           </ol>
         ) : (
           <div className="flex flex-col gap-3" aria-hidden="true">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="skeleton h-8" />
+            {RAEUME.map((r, i) => (
+              <div key={r.id + i} className="skeleton h-8" />
             ))}
           </div>
         )}

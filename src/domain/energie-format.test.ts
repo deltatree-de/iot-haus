@@ -1,27 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { berlinDatum, integriere, mitternachtBerlin, naechsteMitternachtBerlin } from './energie';
+import { berlinDatum, integriere, leererTag, mitternachtBerlin, naechsteMitternachtBerlin } from './energie';
 import * as f from './format';
+
+const tag = leererTag;
 
 const STUNDE = 3_600_000;
 
 describe('Tagesenergie (FR-10)', () => {
   it('2.000 W über 30 min = 1,00 kWh', () => {
     const start = Date.parse('2026-09-26T08:00:00Z');
-    const e = integriere({ datum: '2026-09-26', wh: 0 }, 2000, start, start + STUNDE / 2);
+    const e = integriere(tag('2026-09-26'), 2000, 0, start, start + STUNDE / 2);
     expect(e.wh).toBeCloseTo(1000, 6);
     expect(f.kwh(e.wh)).toBe('1,00 kWh');
   });
 
   it('addiert am selben Tag', () => {
     const t = Date.parse('2026-09-26T10:00:00Z');
-    expect(integriere({ datum: '2026-09-26', wh: 500 }, 1000, t, t + STUNDE)).toEqual({ datum: '2026-09-26', wh: 1500 });
+    expect(integriere({ ...tag('2026-09-26'), wh: 500, bezugWh: 500 }, 1000, 0, t, t + STUNDE)).toEqual({ datum: '2026-09-26', wh: 1500, bezugWh: 1500, einspeisungWh: 0 });
   });
 
   it('keine vergangene Zeit ändert nichts, anderer Tag setzt zurück', () => {
     const t = Date.parse('2026-09-26T10:00:00Z');
-    const e = { datum: '2026-09-26', wh: 5 };
-    expect(integriere(e, 1000, t, t)).toBe(e);
-    expect(integriere({ datum: '2026-09-25', wh: 5 }, 1000, t, t)).toEqual({ datum: '2026-09-26', wh: 0 });
+    const e = { ...tag('2026-09-26'), wh: 5 };
+    expect(integriere(e, 1000, 0, t, t)).toBe(e);
+    expect(integriere({ ...tag('2026-09-25'), wh: 5 }, 1000, 0, t, t)).toEqual(tag('2026-09-26'));
   });
 
   it('Berliner Datum und Mitternacht (Sommerzeit)', () => {
@@ -39,7 +41,7 @@ describe('Tagesenergie (FR-10)', () => {
   it('Integration über Mitternacht zählt nur den neuen Tag', () => {
     const von = Date.parse('2026-09-26T21:30:00Z'); // 23:30 MESZ
     const bis = Date.parse('2026-09-26T22:30:00Z'); // 00:30 MESZ
-    expect(integriere({ datum: '2026-09-26', wh: 999 }, 1000, von, bis)).toEqual({ datum: '2026-09-27', wh: 500 });
+    expect(integriere({ ...tag('2026-09-26'), wh: 999 }, 1000, 0, von, bis)).toEqual({ datum: '2026-09-27', wh: 500, bezugWh: 500, einspeisungWh: 0 });
   });
 
   it('Umstellung auf Sommerzeit 2026-03-29: 23-h-Tag', () => {
@@ -47,9 +49,24 @@ describe('Tagesenergie (FR-10)', () => {
     const ende = naechsteMitternachtBerlin(beginn);
     expect(beginn).toBe(Date.parse('2026-03-28T23:00:00Z'));
     expect(ende - beginn).toBe(23 * STUNDE);
-    const e = integriere({ datum: '2026-03-29', wh: 0 }, 1000, beginn, ende - 1);
+    const e = integriere(tag('2026-03-29'), 1000, 0, beginn, ende - 1);
     expect(e.datum).toBe('2026-03-29');
     expect(e.wh).toBeCloseTo(23000, 0);
+  });
+
+  it('Tagesbilanz mit Solar: 2.000 W bei „Wolkig“ (3.430 W) × 30 min (AC-17)', () => {
+    const t = Date.parse('2026-09-27T10:00:00Z');
+    const e = integriere(tag('2026-09-27'), 2000, 3430, t, t + STUNDE / 2);
+    expect(e.wh).toBeCloseTo(1000, 6);
+    expect(e.bezugWh).toBe(0);
+    expect(e.einspeisungWh).toBeCloseTo(715, 6);
+    expect(f.kwh(e.einspeisungWh)).toBe('0,72\u202fkWh');
+  });
+
+  it('Bezug und Einspeisung bei Teilabdeckung', () => {
+    const t = Date.parse('2026-09-27T10:00:00Z');
+    const e = integriere(tag('2026-09-27'), 3000, 1000, t, t + STUNDE);
+    expect(e).toEqual({ datum: '2026-09-27', wh: 3000, bezugWh: 2000, einspeisungWh: 0 });
   });
 
   it('Umstellung auf Winterzeit 2026-10-25: 25-h-Tag', () => {
@@ -77,6 +94,11 @@ describe('Formatierung de-DE (FR-29)', () => {
     expect(f.strompreis(0.35)).toBe('0,35 €/kWh');
     expect(f.kwh(3420)).toBe('3,42 kWh');
     expect(f.prozent(0.425)).toBe('43 %');
+  });
+
+  it('formatiert Akku und Spitzenleistung', () => {
+    expect(f.akku(64)).toBe('64\u202f%');
+    expect(f.kwp(9800)).toBe('9,8\u202fkWp');
   });
 
   it('formatiert die Restzeit', () => {
