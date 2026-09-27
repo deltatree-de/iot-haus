@@ -53,18 +53,18 @@ export function Elektroauto() {
           </p>
           <p className="sr-only">
             {T.auto.statusSr(ort, prozent, laedt)}
-            {laedt && rest !== null ? `, ${T.auto.vollInSr(h, m)}` : ''}
+            {laedt && rest !== null && rest > 0 && prozent < 100 ? `, ${T.auto.vollInSr(h, m)}` : ''}
           </p>
           <p aria-hidden="true" className="zahlen text-sm text-ink-secondary">
             {status}
-            {laedt && rest !== null && ` · ${T.auto.vollIn(h, m)}`}
+            {laedt && rest !== null && rest > 0 && prozent < 100 && ` · ${T.auto.vollIn(h, m)}`}
           </p>
           <p aria-hidden="true" className="zahlen mt-1 text-sm text-ink">
             {a.zuhause ? T.auto.akku(akku(prozent)) : T.auto.akkuAbfahrt(akku(prozent))}
           </p>
           <div aria-hidden="true" className="mt-1 h-2 overflow-hidden rounded-full bg-surface-sunken">
             <div
-              className={`h-full origin-left rounded-full transition-transform duration-[var(--m-basis)] ${laedt ? 'bg-on' : 'bg-ink-secondary'}`}
+              className="h-full origin-left rounded-full bg-ink-secondary transition-transform duration-[var(--m-basis)]"
               style={{ transform: `scaleX(${wh / ELEKTROAUTO.kapazitaetWh})` }}
             />
           </div>

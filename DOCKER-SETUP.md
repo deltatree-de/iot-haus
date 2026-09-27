@@ -1,11 +1,11 @@
-# IoT-Haus 2.0 – Docker
+# IoT-Haus 2.1 – Docker
 
 Ein Container enthält alles: den Node-Server (Next.js-Seite, `/api/health`, WebSocket `/mqtt`) und den MQTT-Broker Mosquitto.
 supervisord startet beide.
 
 ## Image
 
-`ghcr.io/deltatree-de/iot-haus` für `linux/amd64` und `linux/arm64`. Tags: `:latest`, `:<version>` (z. B. `:2.0.0`), `:sha-<kurz>`.
+`ghcr.io/deltatree-de/iot-haus` für `linux/amd64` und `linux/arm64`. Tags: `:latest`, `:<version>` (z. B. `:2.1.0`), `:sha-<kurz>`.
 
 Das [Dockerfile](Dockerfile) hat vier Stufen:
 
@@ -81,7 +81,8 @@ docker run -d --name iot-haus -p 3000:3000 -v iot-haus-daten:/var/lib/mosquitto 
 
 | Variable | Standard | Wirkung |
 |---|---|---|
-| `STROMPREIS_EUR_PRO_KWH` | `0.35` | Strompreis in €/kWh mit Dezimalpunkt; ungültige Werte → `0.35` und Warnung im Log |
+| `STROMPREIS_EUR_PRO_KWH` | `0.35` | Strompreis in €/kWh mit Dezimalpunkt; ungültige Werte → `0.35` und Warnung `strompreis_ungueltig` im Log |
+| `EINSPEISEVERGUETUNG_EUR_PRO_KWH` | `0.08` | Seit 2.1: Vergütung je eingespeister kWh mit Dezimalpunkt, `0` ist gültig; ungültige oder negative Werte → `0.08` und Warnung `einspeiseverguetung_ungueltig` im Log |
 | `ERLAUBTE_HOSTS` | leer | Optional gegen DNS-Rebinding: kommagetrennte Hostnamen ohne Port (z. B. `haus.local,192.168.1.10`). Gesetzt → WebSocket nur, wenn `Host` und ein vorhandener `X-Forwarded-Host` in der Liste stehen, sonst 403 |
 | `PORT` | `3000` | HTTP/WebSocket-Port im Container (Healthcheck folgt automatisch) |
 | `HOSTNAME` | `0.0.0.0` | Bind-Adresse |
@@ -92,7 +93,8 @@ docker run -d --name iot-haus -p 3000:3000 -v iot-haus-daten:/var/lib/mosquitto 
 
 ### Daten und Sicherung
 
-Das Volume `mosquitto-data` (Mount `/var/lib/mosquitto`) enthält die retained Gerätezustände und den Tagesverbrauch.
+Das Volume `mosquitto-data` (Mount `/var/lib/mosquitto`) enthält die retained Gerätezustände, Elektroauto (Ort, Akkustand),
+Sonnenlage und die Tagesenergie (Verbrauch, Bezug, Einspeisung).
 Ohne Volume beginnt das Haus nach jedem Neustart im Ausgangszustand.
 
 Sicherung:
@@ -106,15 +108,17 @@ Compose stellt dem Volume-Namen den Projektnamen voran (hier `iot-haus_`); den g
 
 ### Herunterfahren
 
-`docker stop` sendet SIGTERM. supervisord stoppt zuerst den Node-Server; der sichert den Tagesverbrauch im Broker (Gerätezustände
-sind bereits bei jeder Änderung gespeichert, der Tagesverbrauch sonst im 60-s-Takt) und schließt
+`docker stop` sendet SIGTERM. supervisord stoppt zuerst den Node-Server; der sichert Tagesenergie und Akkustand im Broker
+(Gerätezustände und Sonnenlage sind bereits bei jeder Änderung gespeichert, Tagesenergie und Akku sonst im 60-s-Takt) und schließt
 die WebSockets mit Code 1012. Danach stoppt Mosquitto. Beide Programme haben 5 s Zeit (`stopwaitsecs=5`).
 
 ### Logs
 
 Node-Server und Mosquitto schreiben nach stdout. Serverzeilen haben das Format
 `<ISO-Zeit> INFO|WARN|FEHLER <ereignis> schluessel=wert …`, z. B. `start`, `bereit`, `mqtt_getrennt`, `befehl typ=schalten ergebnis=ok`,
-`auto_aus geraet=kueche.mikrowelle`, `ws_abgelehnt grund=origin|host|nicht_bereit|zu_viele_verbindungen`, `ws_getrennt grund=liest_nicht`. Nutzdaten werden nicht geloggt.
+`befehl typ=auto ergebnis=NICHT_MOEGLICH`,
+`auto_aus geraet=kueche.mikrowelle`, `akku_voll`, `strompreis quelle=standard wert=0.35`,
+`einspeiseverguetung quelle=umgebung wert=0.08`, `restore_ignoriert topic=…`, `ws_abgelehnt grund=origin|host|nicht_bereit|zu_viele_verbindungen`, `ws_getrennt grund=liest_nicht`. Nutzdaten werden nicht geloggt.
 
 ## Hinter einem Reverse-Proxy
 
@@ -155,4 +159,5 @@ server {
 | Browser bleibt „Getrennt“, Log zeigt `ws_abgelehnt grund=host` | Aufgerufener Hostname fehlt in `ERLAUBTE_HOSTS` → Namen ergänzen (ohne Port) |
 | Log zeigt `ws_abgelehnt grund=zu_viele_verbindungen` | mehr als 100 gleichzeitige WebSockets (z. B. sehr viele offene Tabs) → Tabs schließen |
 | Browser zeigt „Neue Version verfügbar“ | Tab stammt von einer älteren Version → „Neu laden“ |
+| Ertrag bzw. Tageskosten passen nicht zur erwarteten Vergütung, Log zeigt `einspeiseverguetung_ungueltig` | Wert mit Komma statt Punkt oder negativ → z. B. `EINSPEISEVERGUETUNG_EUR_PRO_KWH=0.08` |
 | Zustand nach Neustart weg | Volume fehlt oder wurde gelöscht → `mosquitto-data` wie in der Compose-Datei einbinden |

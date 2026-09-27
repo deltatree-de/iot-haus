@@ -166,7 +166,8 @@ export class Zustandsdienst {
     // Laden endet, wenn das Auto wegfährt oder der Akku voll ist – in derselben Änderung (E-06)
     const regel = wendeZieleAn(zwischen.zustand, erzwingeLadeRegeln(zwischen.zustand, auto, jetzt), jetzt);
     const geaendert = [...new Set([...zwischen.geaendert, ...regel.geaendert])];
-    const autoGeaendert = auto !== this.auto;
+    // Beim Schalten der Wallbox ändert sich die Akku-Fortschreibung: Clients brauchen den frischen Stand (CR21-01)
+    const autoGeaendert = auto !== this.auto || geaendert.includes(WALLBOX);
     const sonneGeaendert = sonne !== this.sonne;
     if (geaendert.length === 0 && !autoGeaendert && !sonneGeaendert) return false;
 

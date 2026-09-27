@@ -39,7 +39,7 @@ export function SonnenWahl() {
                 aria-disabled={gesperrt || undefined}
                 aria-label={T.solar.stufeSr(s.name, zahl(w, 0))}
                 onChange={() => {
-                  if (!gesperrt && !beschaeftigt) sonne(s.id);
+                  if (!gesperrt) sonne(s.id);
                 }}
                 className="sr-only"
               />

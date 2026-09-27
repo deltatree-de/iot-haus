@@ -7,6 +7,7 @@ import { raumById, type RaumId } from '@/domain/katalog';
 import type { HausZustand } from '@/domain/protokoll';
 import { raumverbrauch, runden } from '@/domain/verbrauch';
 import { useImpuls } from '@/hooks/useImpuls';
+import { useSekundentakt } from '@/hooks/useSekundentakt';
 import { T } from '@/ui/texte';
 import { Skeleton } from './Skeleton';
 import { Symbol } from './Symbol';
@@ -26,7 +27,9 @@ export function CarportFlaeche({ raum: id, zustand: z, auto, uhrVersatzMs, impul
   const w = z ? runden(raumverbrauch(z, id)) : 0;
   const laedt = !!z && !!auto && z[ELEKTROAUTO.ladegeraet].an && auto.zuhause;
   const art: 'laedt' | 'zuhause' | 'unterwegs' = !auto || !auto.zuhause ? 'unterwegs' : laedt ? 'laedt' : 'zuhause';
-  const p = auto ? akkuProzent(akkuWhBei(auto, laedt, Date.now() + uhrVersatzMs)) : 0;
+  // beim Laden mitzählen wie die Carport-Karte (CR21-03)
+  const jetzt = useSekundentakt(laedt) || Date.now();
+  const p = auto ? akkuProzent(akkuWhBei(auto, laedt, jetzt + uhrVersatzMs)) : 0;
 
   return (
     <button

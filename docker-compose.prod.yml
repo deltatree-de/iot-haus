@@ -1,4 +1,4 @@
-# IoT-Haus 2.0 – Produktion mit dem Image aus der GitHub Container Registry.
+# IoT-Haus 2.1 – Produktion mit dem Image aus der GitHub Container Registry.
 # Update: docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
 # Der Healthcheck kommt aus dem Image (Dockerfile, ohne curl) – hier keinen eigenen healthcheck-Block setzen.
 
@@ -14,6 +14,8 @@ services:
       - MQTT_BROKER_PORT=1883
       # Strompreis in €/kWh mit Dezimalpunkt (Standard 0.35):
       # - STROMPREIS_EUR_PRO_KWH=0.32
+      # Einspeisevergütung in €/kWh mit Dezimalpunkt (Standard 0.08):
+      # - EINSPEISEVERGUETUNG_EUR_PRO_KWH=0.08
       # Optional gegen DNS-Rebinding: nur diese Hostnamen dürfen den WebSocket öffnen (ohne Port):
       # - ERLAUBTE_HOSTS=haus.local,192.168.1.10
     volumes:

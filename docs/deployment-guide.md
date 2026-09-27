@@ -1,4 +1,4 @@
-# IoT-Haus 2.0 – Deployment
+# IoT-Haus 2.1 – Deployment
 
 ## Artefakt
 
@@ -24,7 +24,15 @@ docker compose -f docker-compose.prod.yml up -d
 - Port `3000`, Volume `mosquitto-data` → `/var/lib/mosquitto`, `restart: unless-stopped`, Containername `iot-haus-control`.
 - Kein `healthcheck`-Block in der Compose-Datei (Upgrade von 1.x: alten curl-Block entfernen, siehe
   [README – Upgrade-Hinweis 2.0.0](../README.md#upgrade-hinweis-200)).
-- Strompreis über `STROMPREIS_EUR_PRO_KWH`; optional `ERLAUBTE_HOSTS` (Hostnamen ohne Port) gegen DNS-Rebinding.
+- Strompreis über `STROMPREIS_EUR_PRO_KWH`, Einspeisevergütung über `EINSPEISEVERGUETUNG_EUR_PRO_KWH` (seit 2.1, Standard 0.08;
+  in beiden Compose-Dateien als auskommentiertes Beispiel); optional `ERLAUBTE_HOSTS` (Hostnamen ohne Port) gegen DNS-Rebinding.
+
+## Upgrade 2.0.x → 2.1.0
+
+Kein manueller Schritt: `pull` und `up -d` genügen. Der Tagesverbrauch aus 2.0 wird übernommen (Energie-Topic `v: 1` wird beim
+Start als Netzbezug gelesen und danach als `v: 2` geschrieben). Wallbox, Elektroauto (zu Hause, 50 %) und Sonne („Nacht“) starten
+im Ausgangszustand. Offene 2.0-Tabs zeigen „Neue Version verfügbar“ und senden nichts mehr. Release-Text:
+[`.github/release-hinweise/v2.1.0.md`](../.github/release-hinweise/v2.1.0.md).
 
 ## Kubernetes
 
@@ -45,9 +53,14 @@ Workflow `.github/workflows/ci-release.yml`: `qualitaet` → `container` → `im
 
 1. `docker ps` zeigt nach spätestens 60 s `(healthy)`.
 2. `curl -s http://<host>:3000/api/health` (vom Host aus) liefert `{"status":"ok","mqtt":"verbunden","version":"<version>"}`.
-3. Manuelle Punkte der [Abnahme-Checkliste](./abnahme-2.0.md#b--manuell-auf-echtem-gerät-nach-deploy) auf echtem Handy und Laptop.
+3. Nach einem Neustart sind Sonnenlage, Elektroauto und Tageswerte erhalten.
+4. Manuelle Punkte der [Abnahme-Checkliste 2.1](./abnahme-2.1.md#b--manuell-auf-echtem-gerät-nach-deploy) (und die weiterhin offenen aus
+   [2.0](./abnahme-2.0.md#b--manuell-auf-echtem-gerät-nach-deploy)) auf echtem Handy und Laptop.
 
 ## Rückkehr zu einer Version
 
 In der Compose-Datei `:latest` durch `:<version>` oder `:sha-<kurz>` ersetzen und `docker compose … up -d`. Das Volume bleibt erhalten.
+Eine Rückkehr von 2.1 auf 2.0 ist möglich, aber 2.0 kennt das Energie-Topic `v: 2` nicht: Es ignoriert den Tageswert und beginnt
+den Tag bei 0. Auto-, Sonnen- und Wallbox-Topics bleiben unbeachtet liegen
+(Logzeilen `restore_ignoriert`).
 Eine Rückkehr auf 1.x ist nicht vorgesehen (andere Topics; 1.x würde den 2.0-Zustand nicht lesen).

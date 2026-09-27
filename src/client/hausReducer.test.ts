@@ -255,6 +255,22 @@ describe('hausReducer 2.1: Sonne und Elektroauto', () => {
     expect(autoBeschaeftigt(z)).toBe(false);
   });
 
+  it('2.1-Tab gegen Server ohne Wallbox: Katalog wird aufgefüllt (CR21-02)', () => {
+    const s20 = snapshot() as Extract<ServerNachricht, { typ: 'snapshot' }>;
+    const { ['carport.wallbox']: _weg, ...ohne } = s20.zustand;
+    void _weg;
+    const z = hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: { ...s20, zustand: ohne as never, version: '2.0.0' }, jetzt: SERVER_ZEIT, clientVersion: V });
+    expect(z.server!.zustand['carport.wallbox']).toEqual({ an: false, seit: SERVER_ZEIT });
+    expect(z.versionKonflikt).toBe(true);
+  });
+
+  it('Sonne: letzte Wahl gewinnt, vor dem Snapshot keine Auswahl (CR21-04, CR21-05)', () => {
+    expect(anzeigeSonne(anfangszustand())).toEqual({ stufe: null, beschaeftigt: false });
+    let z = hausReducer(verbundenerZustand(), { typ: 'gesendet', befehlId: 's1', ausstehend: { art: 'sonne', ref: 'wolkig' } });
+    z = hausReducer(z, { typ: 'gesendet', befehlId: 's2', ausstehend: { art: 'sonne', ref: 'heiter' } });
+    expect(anzeigeSonne(z)).toEqual({ stufe: 'heiter', beschaeftigt: true });
+  });
+
   it('2.0-Tab gegen 2.1-Server: Versionskonflikt ohne Ausnahme (AC-23)', () => {
     const z = hausReducer(anfangszustand(), { typ: 'nachricht', nachricht: snapshotLaedt(), jetzt: SERVER_ZEIT, clientVersion: '2.0.0' });
     expect(z.versionKonflikt).toBe(true);

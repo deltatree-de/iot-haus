@@ -170,15 +170,15 @@ export class WsVerbindungen {
       return;
     }
     const ausfuehrung = dienst.fuehreAus(ergebnis.befehl);
-    if (!ausfuehrung.ok) return this.fehler(ws, ausfuehrung.code, ergebnis.befehl.id);
+    if (!ausfuehrung.ok) return this.fehler(ws, ausfuehrung.code, ergebnis.befehl.id, ergebnis.befehl.typ);
     this.log.info('befehl', { typ: ergebnis.befehl.typ, ergebnis: ausfuehrung.geaendert ? 'ok' : 'keine_aenderung' });
     this.sende(ws, { typ: 'bestaetigt', befehlId: ergebnis.befehl.id, geaendert: ausfuehrung.geaendert });
   }
 
-  private fehler(ws: Lebendig, code: FehlerCode, befehlId: string | null): void {
+  private fehler(ws: Lebendig, code: FehlerCode, befehlId: string | null, typ?: string): void {
     const jetzt = performance.now();
     if (jetzt >= (ws.logBis ?? 0)) {
-      this.log.warn('befehl', { ergebnis: code, unterdrueckt: ws.unterdrueckt || undefined });
+      this.log.warn('befehl', { typ, ergebnis: code, unterdrueckt: ws.unterdrueckt || undefined });
       ws.logBis = jetzt + LOG_PAUSE_MS;
       ws.unterdrueckt = 0;
     } else {

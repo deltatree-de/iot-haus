@@ -6,6 +6,8 @@ import { WebSocket } from 'ws';
 
 const BASIS = process.env.SMOKE_BASIS || 'http://127.0.0.1:3000';
 const GERAET = 'arbeitszimmer.pc';
+// Katalog 2.1: 28 Hausgeräte + Wallbox im Carport
+const ANZAHL_GERAETE = 29;
 const modus = process.argv[2];
 const version = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -36,7 +38,8 @@ ws.on('message', (daten) => {
   const n = JSON.parse(daten.toString());
   if (n.typ === 'snapshot') {
     snapshot = n;
-    if (Object.keys(n.zustand).length !== 28) fehler('Snapshot hat nicht 28 Geräte');
+    if (Object.keys(n.zustand).length !== ANZAHL_GERAETE) fehler(`Snapshot hat nicht ${ANZAHL_GERAETE} Geräte`);
+    if (!n.auto || !n.sonne || typeof n.energie?.bezugWh !== 'number') fehler('Snapshot ohne Elektroauto/Sonne/Netzbilanz');
     if (n.version !== version) fehler(`Version ${n.version} statt ${version}`);
     if (modus === 'schalten') {
       ws.send(JSON.stringify({ typ: 'schalten', id: 'smoke-1', geraet: GERAET, an: true }));

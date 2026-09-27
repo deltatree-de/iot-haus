@@ -1,4 +1,5 @@
 // Client-Zustand als reine Funktion (Architektur §3.8, UX-Zustandsautomat). Kein React.
+import { ausgangszustand } from '../domain/befehle';
 import { akkuProzent, ausgangsAuto, ELEKTROAUTO, type AutoZustand } from '../domain/elektroauto';
 import { geraetById, istGeraetId, istRaumId, raumById, type GeraetId, type RaumId } from '../domain/katalog';
 import type { Energie, HausZustand, ServerNachricht, Ursache } from '../domain/protokoll';
@@ -242,7 +243,8 @@ function verarbeite(z: ClientZustand, n: ServerNachricht, jetzt: number, clientV
         fehlversuche: 0,
         jeVerbunden: true,
         server: {
-          zustand: n.zustand,
+          // Fehlende Geräte (älterer Server ohne Wallbox) mit dem Ausgangszustand auffüllen (CR21-02)
+          zustand: { ...ausgangszustand(n.serverZeit), ...n.zustand },
           // Fehlende Felder (älterer Server) defensiv ergänzen (Proposal §5.3.2 Regel 2)
           auto: n.auto ?? ausgangsAuto(n.serverZeit),
           sonne: n.sonne ?? ausgangsSonne(n.serverZeit),
@@ -369,10 +371,11 @@ export function istBeschaeftigt(z: ClientZustand, art: Ausstehend['art'], ref: s
 }
 
 /** Anzeige der Sonnenlage: Serverwert, überlagert von der gerade gewählten Stufe (optimistisch, FR-21). */
-export function anzeigeSonne(z: ClientZustand): { stufe: SonnenStufe; beschaeftigt: boolean } {
-  const ausstehend = Object.values(z.ausstehend).find((a) => a.art === 'sonne');
+export function anzeigeSonne(z: ClientZustand): { stufe: SonnenStufe | null; beschaeftigt: boolean } {
+  // Die zuletzt gewählte Stufe gewinnt (Pfeiltasten, CR21-04); vor dem Snapshot ist nichts gewählt (CR21-05)
+  const ausstehend = Object.values(z.ausstehend).filter((a) => a.art === 'sonne').at(-1);
   if (ausstehend && istSonnenStufe(ausstehend.ref)) return { stufe: ausstehend.ref, beschaeftigt: true };
-  return { stufe: z.server?.sonne.stufe ?? 'nacht', beschaeftigt: false };
+  return { stufe: z.server?.sonne.stufe ?? null, beschaeftigt: false };
 }
 
 /** Ist gerade ein Auto-Befehl (Wegfahren/Zurückkommen) unterwegs? */

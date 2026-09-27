@@ -75,8 +75,8 @@ export function HausProvider({
 
   const sende = useCallback((befehl: OhneId<Befehl>, ausstehend: Ausstehend) => {
     const z = aktuell.current;
-    // Sonne und Auto: höchstens ein offener Befehl je Art (eine Auswahl bzw. eine Fahrt zur Zeit)
-    const eineJeArt = ausstehend.art === 'sonne' || ausstehend.art === 'auto';
+    // Auto: höchstens eine offene Fahrt; Sonne: jede Wahl wird gesendet, die letzte gewinnt (CR21-04)
+    const eineJeArt = ausstehend.art === 'auto';
     const belegt = eineJeArt
       ? Object.values(z.ausstehend).some((a) => a.art === ausstehend.art)
       : istBeschaeftigt(z, ausstehend.art, ausstehend.ref);

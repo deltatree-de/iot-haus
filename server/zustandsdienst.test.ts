@@ -238,6 +238,19 @@ describe('Zustandsdienst', () => {
       expect(dienst.fuehreAus({ typ: 'auto', id: 'z2', zuhause: true })).toEqual({ ok: true, geaendert: false });
     });
 
+    it('Schalten der Wallbox verteilt den aktuellen Akkustand mit (CR21-01)', () => {
+      const { dienst, nachrichten } = baue();
+      vi.advanceTimersByTime(50_000);
+      dienst.fuehreAus({ typ: 'schalten', id: 'l', geraet: WB, an: true });
+      const an = nachrichten.at(-1)!;
+      expect(an.typ === 'aenderung' && an.auto).toEqual({ zuhause: true, akkuWh: 30000, stand: START + 50_000 });
+      vi.advanceTimersByTime(50_000);
+      dienst.fuehreAus({ typ: 'schalten', id: 'l2', geraet: WB, an: false });
+      const aus = nachrichten.at(-1)!;
+      expect(aus.typ === 'aenderung' && aus.auto?.akkuWh).toBeCloseTo(30000 + (11000 * 50) / 3600, 6);
+      expect(aus.typ === 'aenderung' && aus.auto?.stand).toBe(START + 100_000);
+    });
+
     it('Wegfahren unter 15 % ist nicht möglich (AC-08)', () => {
       const { dienst } = baue({ auto: { zuhause: true, akkuWh: 8000, stand: 0 } });
       expect(dienst.fuehreAus({ typ: 'auto', id: 'w', zuhause: false })).toEqual({ ok: false, code: 'NICHT_MOEGLICH' });
