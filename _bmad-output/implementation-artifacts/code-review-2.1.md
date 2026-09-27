@@ -145,3 +145,67 @@ Vor dem Merge müssen diese Dateien committet werden.
 | CR21-11 | behoben | Kontrasttest prüft ausdrücklich 36 Rollen. |
 | CR21-12 | Teamentscheidung | Der 2.0-Client ersetzt beim Snapshot nur `server` und liest Geräte über seinen eigenen Katalog (28 IDs, alle im 2.1-Snapshot vorhanden); unbekannte Felder werden nicht gelesen, Änderungen bei Versionskonflikt ignoriert (CR-06 aus 2.0). Ein Test mit dem echten 2.0-Code würde den 2.0-Katalog parallel zum 2.1-Katalog verlangen; der Nachweis erfolgt stattdessen im Container-Rauchtest und im Versionsbanner-Test. |
 | Vorbedingung | erledigt | Release-Hinweise, Doku, Abnahme und `scripts/smoke-container.mjs` werden mit diesem Stand committet. Die Änderung am Rauchtest ist nötig, weil der Katalog jetzt 29 Geräte hat; zusätzlich prüft er Auto, Sonne und Netzbilanz im Snapshot. |
+
+## Re-Review (2026-09-27)
+
+- **Umfang:** `git diff e3d326e..501d068` (38 Dateien), dazu Doku-Abgleich README/API.md mit dem Code und `.github/release-hinweise/v2.1.0.md`.
+- **Gates:** `npm run typecheck` ok, `npm run lint` ok (0 Warnungen), `npm test` ok (15 Dateien, **342** Tests).
+- **Live-Prüfung** (`ws://localhost:3100/mqtt`, Version 2.1.0):
+  - `schalten carport.wallbox an:true` bzw. `an:false` → `aenderung` enthält jetzt `auto` mit `stand` = Schaltzeitpunkt und frisch integriertem `akkuWh`.
+  - Wegfahren → `aenderung` mit `auto.zuhause:false`. Wallbox an bei Auto unterwegs → `fehler NICHT_MOEGLICH`. Zurückkommen zieht 9.000 Wh ab.
+  - Endzustand wie vorgegeben: Sonne `nacht`, Auto zu Hause, Wallbox aus. Durch die Hin- und Rückfahrt hat der Akku 9 kWh verloren (21.004 Wh → 12.004 Wh, 35 % → 20 %). Das lässt sich ohne ca. 50 min Laden nicht zurückdrehen und ist für die Abnahme unerheblich.
+
+### Urteile zu CR21-01 bis CR21-12
+
+| ID | Urteil | Begründung |
+|---|---|---|
+| CR21-01 | **behoben, verifiziert** | `autoGeaendert = auto !== this.auto \|\| geaendert.includes(WALLBOX)` in `aendere`. Damit ist `auto` bei jedem Schalten der Wallbox dabei: per Befehl, Szene, `raumAus`, Akku voll und Wegfahren. Der neue Test prüft `stand` und `akkuWh` beim Ein- und Ausschalten, live bestätigt. Der Client (`meldungFuer`) erzeugt dabei keine Zusatzmeldung, weil sich die Meldung nach `ursache` richtet. Die Persistenzbedingung Z. 197 (`\|\| geaendert.includes(WALLBOX)`) ist jetzt redundant. Das ist kosmetisch und kein Befund. |
+| CR21-02 | **behoben** | `{ ...ausgangszustand(n.serverZeit), ...n.zustand }`, Test mit Snapshot ohne Wallbox. |
+| CR21-03 | **behoben** | `CarportFlaeche` nutzt `useSekundentakt(laedt)`, der Hook läuft vor jedem Rückgabezweig. `Raumkarte.sperrGrund` braucht keinen Takt: Es rechnet mit `laedt=false` und greift nur bei ausgeschalteter Wallbox, dann ändert sich der Akku nicht. |
+| CR21-04 | **behoben, Restfall siehe RR21-01** | Jede Wahl wird gesendet, und `anzeigeSonne` zeigt die zuletzt ausstehende Stufe. Die Reihenfolge ist stabil, weil die Befehls-IDs nicht numerisch sind und die Einfügereihenfolge gilt. Das Rate-Limit (100 am Stück, dann 20/s) reicht für Pfeiltasten. |
+| CR21-05 | **behoben** | `stufe: null` vor dem Snapshot, getestet. |
+| CR21-06 | **behoben** | „voll in …“ nur bei `rest > 0 && prozent < 100`. `akkuProzent` liefert 100 nur ab Kapazität minus Toleranz, dadurch gibt es keine falsche Unterdrückung. |
+| CR21-07 | **Teamentscheidung akzeptiert** | Die Auswirkung ist begrenzt (≤ 60 s bzw. bis zur nächsten `aenderung`), der Server bleibt konsistent. |
+| CR21-08 | **behoben** | Der Balken ist immer `bg-ink-secondary`. |
+| CR21-09 | **Teamentscheidung akzeptiert** | Die Begründung (PRD FR-8/FR-29: eine Nachkommastelle) trägt. Die Doku zieht aber nicht nach, siehe RR21-03. |
+| CR21-10 | **behoben** | `fehler(…, typ)` loggt `typ`. Das greift auch bei `NICHT_MOEGLICH`, der einzigen Stelle, an der `fuehreAus` fehlschlägt. |
+| CR21-11 | **behoben** | `expect(TOKEN_NAMEN).toHaveLength(36)`. |
+| CR21-12 | **Teamentscheidung akzeptiert** | Der 2.0-Client liest nur Katalog-IDs, und alle 28 davon sind im 2.1-Snapshot enthalten. Der Versionskonflikt blockiert `aenderung`. Der Nachweis über den Container-Rauchtest und den Versionsbanner-Test reicht. |
+| Vorbedingung | **erledigt** | `.github/release-hinweise/v2.1.0.md` ist committet, und `ci-release.yml` liest `.github/release-hinweise/v$V.md`. Die Zahlen im Hinweis sind nachgerechnet: 2 h 44 min ab 50 %, −10.997 W, 8.330/8.252 W, 0,66 €/h, 78 W. Die Env-Doku ist korrekt. Die Änderung an `smoke-container.mjs` ist begründet (29 Geräte, Auto/Sonne/Netzbilanz). Der Doku-Abgleich zeigt keine Abweichung. Geprüft wurden: Env-Variablen (`konfig.ts` mit README-Tabelle und Compose-Dateien), die Logereignisse `*_ungueltig`, die Befehle `sonne`/`auto`, die Regeln für `NICHT_MOEGLICH`, `aenderung.auto` (neue Regel in API.md richtig beschrieben), `energie.auto`, die Prüfreihenfolge und „Heute erzeugt“. |
+
+### Neue Befunde
+
+#### RR21-01 – niedrig – Sonnenwahl: Eine Stufe erneut zu wählen, deren früherer Befehl noch aussteht, wird verworfen
+- **Ort:** `src/hooks/useHaus.tsx:78-82` (`istBeschaeftigt(z, 'sonne', ref)`)
+- **Szenario:** Das ist ein Code-Trace. Ausgang „Nacht“, dann schnell → „Bedeckt“ (s1 offen), ← „Nacht“ (s2 offen), → „Bedeckt“.
+  - Der dritte Befehl wird nicht gesendet, weil s1 mit `ref: 'bedeckt'` noch aussteht.
+  - Angezeigt wird die zuletzt ausstehende Stufe „Nacht“, der Fokus steht aber auf „Bedeckt“. Der Server endet bei „Nacht“, obwohl der Nutzer „Bedeckt“ wollte.
+  - Das tritt nur im Latenzfenster auf, also über das Netz.
+- **Fix:** Für `sonne` gar nicht blockieren, denn das Rate-Limit schützt ohnehin. Alternativ ausstehende Sonnenbefehle mit gleicher `ref` vor dem Senden entfernen oder ersetzen.
+
+#### RR21-02 – niedrig – `docs/abnahme-2.1.md` nennt 338 Tests, Stand 501d068 sind es 342
+- **Ort:** `docs/abnahme-2.1.md:23`
+- **Fix:** Zahl aktualisieren.
+
+#### RR21-03 – niedrig – Doku nennt „Standby 3 W · Auto unterwegs“, die Oberfläche zeigt nach Teamentscheidung CR21-09 „Standby 3,0 W …“
+- **Ort:** `docs/component-inventory.md:55`
+- **Fix:** Text auf „Standby 3,0 W · Auto unterwegs“ angleichen. Leistungsangaben wie „Standby 3 W“ in README, data-models und Release-Hinweisen sind Fließtext und dürfen bleiben.
+
+### Ergebnis Re-Review
+
+| Schweregrad | offen |
+|---|---|
+| kritisch | 0 |
+| hoch | 0 |
+| mittel | 0 |
+| niedrig | 3 (RR21-01 bis RR21-03) |
+
+CR21-01 ist behoben und verifiziert. In `e3d326e..501d068` gibt es keine Regression ab „mittel“. **Freigegeben.** Die drei niedrigen Befunde können vor dem Merge mitgenommen werden, sie blockieren aber nicht.
+
+### Umsetzung Re-Review (Amelia)
+
+| ID | Ergebnis | Umsetzung |
+|---|---|---|
+| RR21-01 | behoben | Sonnenwahl-Befehle werden nie wegen offener Befehle verworfen; die zuletzt gewählte Stufe wird angezeigt. |
+| RR21-02 | behoben | Abnahme nennt 342 Tests. |
+| RR21-03 | behoben | Komponenteninventar nennt „Standby 3,0 W“. |

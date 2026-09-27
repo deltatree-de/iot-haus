@@ -76,10 +76,12 @@ export function HausProvider({
   const sende = useCallback((befehl: OhneId<Befehl>, ausstehend: Ausstehend) => {
     const z = aktuell.current;
     // Auto: höchstens eine offene Fahrt; Sonne: jede Wahl wird gesendet, die letzte gewinnt (CR21-04)
-    const eineJeArt = ausstehend.art === 'auto';
-    const belegt = eineJeArt
-      ? Object.values(z.ausstehend).some((a) => a.art === ausstehend.art)
-      : istBeschaeftigt(z, ausstehend.art, ausstehend.ref);
+    const belegt =
+      ausstehend.art === 'auto'
+        ? Object.values(z.ausstehend).some((a) => a.art === 'auto')
+        : ausstehend.art === 'sonne'
+          ? false // auch Hin-und-her-Wechsel wird gesendet (RR21-01)
+          : istBeschaeftigt(z, ausstehend.art, ausstehend.ref);
     if (!istBedienbar(z) || belegt) return;
     const id = `${Date.now().toString(36)}-${zaehler.current++}`;
     dispatch({ typ: 'gesendet', befehlId: id, ausstehend });

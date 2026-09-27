@@ -20,7 +20,7 @@ Die Prüfpunkte aus [Abnahme 2.0](./abnahme-2.0.md) gelten weiter; Teil B von 2.
 
 ### Qualität und Budget
 
-- [x] **338** automatisierte Tests grün (`npm test`), Zeilenabdeckung **99 %** (Schwelle 90 % für `src/domain/**` inkl.
+- [x] **342** automatisierte Tests grün (`npm test`), Zeilenabdeckung **99 %** (Schwelle 90 % für `src/domain/**` inkl.
   `elektroauto.ts` und `solar.ts` sowie `server/zustandsdienst.ts`)
 - [x] `npm run lint`: 0 Befunde
 - [x] `npm run typecheck`: 0 Fehler
