@@ -106,7 +106,7 @@ describe('Architekturregeln', () => {
     expect(docker).toMatch(/HEALTHCHECK[\s\S]*node", "-e", "fetch\('http:\/\/127\.0\.0\.1:'\+\(process\.env\.PORT\|\|3000\)\+'\/api\/health'\)/);
     expect(docker).toContain('COPY package.json next.config.mjs ./');
     expect(docker).toContain('USER 1000:1000');
-    expect(docker).toContain('FROM node:22-alpine AS runtime');
+    expect(docker).toMatch(/FROM node:22(\.\d+\.\d+)?-alpine[\d.]* AS runtime/);
     for (const compose of ['docker-compose.yml', 'docker-compose.prod.yml']) {
       expect(fs.readFileSync(path.join(WURZEL, compose), 'utf8')).not.toMatch(/^\s*healthcheck:/m);
     }
